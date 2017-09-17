@@ -1,3 +1,5 @@
 <resources>
     <string name="app_name">MobileVideoCaptureAndUploader</string>
+    <string name="record_video_button">Record Video Button</string>
+    <string name="recording_video_button">Recoding Video Button</string>
 </resources>

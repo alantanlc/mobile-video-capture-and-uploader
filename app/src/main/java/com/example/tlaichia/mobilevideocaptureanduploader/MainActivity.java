@@ -20,6 +20,7 @@ import android.util.Size;
 import android.view.Surface;
 import android.view.TextureView;
 import android.view.View;
+import android.widget.ImageButton;
 import android.widget.Toast;
 
 import java.util.Arrays;
@@ -33,6 +34,8 @@ public class MainActivity extends AppCompatActivity {
     private CaptureRequest.Builder mCaptureRequestBuilder;
     private HandlerThread mBackgroundHandlerThread;
     private Handler mBackgroundHandler;
+    private ImageButton mRecordVideoImageButton;
+    private boolean mIsRecording;
 
     private TextureView.SurfaceTextureListener mSurfaceTextureListener = new TextureView.SurfaceTextureListener() {
         @Override
@@ -84,6 +87,20 @@ public class MainActivity extends AppCompatActivity {
         setContentView(R.layout.activity_main);
 
         mTextureView = (TextureView) findViewById(R.id.textureView);
+        mIsRecording = false;
+        mRecordVideoImageButton = (ImageButton) findViewById(R.id.recordVideoImageButton);
+        mRecordVideoImageButton.setOnClickListener(new View.OnClickListener() {
+            @Override
+            public void onClick(View v) {
+                if(mIsRecording) {
+                    mIsRecording = false;
+                    mRecordVideoImageButton.setImageResource(R.mipmap.btn_video_record);
+                } else {
+                    mIsRecording = true;
+                    mRecordVideoImageButton.setImageResource(R.mipmap.btn_video_recording);
+                }
+            }
+        });
     }
 
     @Override
@@ -126,7 +143,7 @@ public class MainActivity extends AppCompatActivity {
         if(hasFocus) {
             decorView.setSystemUiVisibility(View.SYSTEM_UI_FLAG_LAYOUT_STABLE
             | View.SYSTEM_UI_FLAG_IMMERSIVE_STICKY
-            | View.SYSTEM_UI_FLAG_FULLSCREEN
+            | View.SYSTEM_UI_FLAG_LAYOUT_FULLSCREEN
             | View.SYSTEM_UI_FLAG_LAYOUT_HIDE_NAVIGATION
             | View.SYSTEM_UI_FLAG_FULLSCREEN
             | View.SYSTEM_UI_FLAG_HIDE_NAVIGATION);
