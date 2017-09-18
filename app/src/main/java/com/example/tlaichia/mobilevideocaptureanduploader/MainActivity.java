@@ -10,6 +10,8 @@ import android.hardware.camera2.CameraCharacteristics;
 import android.hardware.camera2.CameraDevice;
 import android.hardware.camera2.CameraManager;
 import android.hardware.camera2.CaptureRequest;
+import android.media.Image;
+import android.media.ImageReader;
 import android.media.MediaCodec;
 import android.media.MediaCodecInfo;
 import android.media.MediaFormat;
@@ -32,6 +34,7 @@ import android.widget.Toast;
 
 import java.io.File;
 import java.io.IOException;
+import java.nio.ByteBuffer;
 import java.text.SimpleDateFormat;
 import java.util.Arrays;
 import java.util.Date;
@@ -47,6 +50,7 @@ public class MainActivity extends AppCompatActivity {
     private Size mVideoSize;
     // private MediaRecorder mMediaRecorder;
     private MediaCodec mMediaCodec;
+    private MediaFormat mMediaFormat;
     private CaptureRequest.Builder mCaptureRequestBuilder;
     private HandlerThread mBackgroundHandlerThread;
     private Handler mBackgroundHandler;
@@ -86,7 +90,6 @@ public class MainActivity extends AppCompatActivity {
             if(mIsRecording) {
                 startRecord();
                 mMediaCodec.start();
-                mMediaCodec.reset();
                 //mMediaRecorder.start();
             } else {
                 startPreview();
@@ -128,6 +131,7 @@ public class MainActivity extends AppCompatActivity {
                     mIsRecording = false;
                     mRecordVideoImageButton.setImageResource(R.mipmap.btn_video_record);
                     mMediaCodec.stop();
+                    mMediaCodec.reset();
                     startPreview();
                 } else {
                     checkWriteStoragePermission();
@@ -247,6 +251,7 @@ public class MainActivity extends AppCompatActivity {
             Surface previewSurface = new Surface(surfaceTexture);
 
             Surface recordSurface = mMediaCodec.createInputSurface();
+
             mCaptureRequestBuilder = mCameraDevice.createCaptureRequest(CameraDevice.TEMPLATE_RECORD);
             mCaptureRequestBuilder.addTarget(previewSurface);
             mCaptureRequestBuilder.addTarget(recordSurface);
@@ -269,23 +274,29 @@ public class MainActivity extends AppCompatActivity {
 
             mMediaCodec.setCallback(new MediaCodec.Callback() {
                 @Override
-                public void onInputBufferAvailable(@NonNull MediaCodec codec, int index) {
+                public void onInputBufferAvailable(MediaCodec codec, int index) {
 
                 }
 
                 @Override
-                public void onOutputBufferAvailable(@NonNull MediaCodec codec, int index, @NonNull MediaCodec.BufferInfo info) {
+                public void onOutputBufferAvailable(MediaCodec codec, int index, MediaCodec.BufferInfo info) {
+                    ByteBuffer outputBuffer = codec.getOutputBuffer(index);
+                    // outputBuffer is ready to be processed or rendered.
+                    // ...
 
+                    Log.i("MainActivity", "Size: " + info.size);
+
+                    codec.releaseOutputBuffer(index, false);
                 }
 
                 @Override
-                public void onError(@NonNull MediaCodec codec, @NonNull MediaCodec.CodecException e) {
+                public void onError(@NonNull MediaCodec codec, MediaCodec.CodecException e) {
                     Toast.makeText(getApplicationContext(), "mMediaCodec onError!", Toast.LENGTH_SHORT).show();
                 }
 
                 @Override
-                public void onOutputFormatChanged(@NonNull MediaCodec codec, @NonNull MediaFormat format) {
-
+                public void onOutputFormatChanged(MediaCodec codec, MediaFormat format) {
+                    mMediaFormat = format;
                 }
             });
 
@@ -390,13 +401,13 @@ public class MainActivity extends AppCompatActivity {
     }
 
     private void setupMediaCodec() throws IOException {
-        MediaFormat format = MediaFormat.createVideoFormat(MEDIA_CODEC_ENCODER_TYPE, mVideoSize.getWidth(), mVideoSize.getHeight());
+        mMediaFormat = MediaFormat.createVideoFormat(MEDIA_CODEC_ENCODER_TYPE, mVideoSize.getWidth(), mVideoSize.getHeight());
         int colorFormat = MediaCodecInfo.CodecCapabilities.COLOR_FormatSurface;
-        format.setInteger(MediaFormat.KEY_COLOR_FORMAT, colorFormat);
-        format.setInteger(MediaFormat.KEY_BIT_RATE, 5000000);
-        format.setInteger(MediaFormat.KEY_FRAME_RATE, 30);
-        format.setInteger(MediaFormat.KEY_I_FRAME_INTERVAL, 1);
+        mMediaFormat.setInteger(MediaFormat.KEY_COLOR_FORMAT, colorFormat);
+        mMediaFormat.setInteger(MediaFormat.KEY_BIT_RATE, 5000000);
+        mMediaFormat.setInteger(MediaFormat.KEY_FRAME_RATE, 30);
+        mMediaFormat.setInteger(MediaFormat.KEY_I_FRAME_INTERVAL, 1);
 
-        mMediaCodec.configure(format, null, null, MediaCodec.CONFIGURE_FLAG_ENCODE);
+        mMediaCodec.configure(mMediaFormat, null, null, MediaCodec.CONFIGURE_FLAG_ENCODE);
     }
 }
