@@ -10,14 +10,19 @@ import android.hardware.camera2.CameraCharacteristics;
 import android.hardware.camera2.CameraDevice;
 import android.hardware.camera2.CameraManager;
 import android.hardware.camera2.CaptureRequest;
+import android.media.MediaCodec;
+import android.media.MediaCodecInfo;
+import android.media.MediaFormat;
 import android.media.MediaRecorder;
 import android.os.Build;
 import android.os.Environment;
 import android.os.Handler;
 import android.os.HandlerThread;
+import android.support.annotation.NonNull;
 import android.support.v4.content.ContextCompat;
 import android.support.v7.app.AppCompatActivity;
 import android.os.Bundle;
+import android.util.Log;
 import android.util.Size;
 import android.view.Surface;
 import android.view.TextureView;
@@ -34,12 +39,14 @@ import java.util.Date;
 public class MainActivity extends AppCompatActivity {
     private static final int REQUEST_CAMERA_PERMISSION_RESULT = 0;
     private static final int REQUEST_WRITE_EXTERNAL_STORAGE_PERMISSION_RESULT = 1;
+    private static final String MEDIA_CODEC_ENCODER_TYPE = "video/avc";
     private TextureView mTextureView;
     private CameraDevice mCameraDevice;
     private String mCameraId;
     private Size mPreviewSize;
     private Size mVideoSize;
-    private MediaRecorder mMediaRecorder;
+    // private MediaRecorder mMediaRecorder;
+    private MediaCodec mMediaCodec;
     private CaptureRequest.Builder mCaptureRequestBuilder;
     private HandlerThread mBackgroundHandlerThread;
     private Handler mBackgroundHandler;
@@ -77,13 +84,10 @@ public class MainActivity extends AppCompatActivity {
         public void onOpened(CameraDevice camera) {
             mCameraDevice = camera;
             if(mIsRecording) {
-                try {
-                    createVideoFileName();
-                } catch (IOException e) {
-                    e.printStackTrace();
-                }
                 startRecord();
-                mMediaRecorder.start();
+                mMediaCodec.start();
+                mMediaCodec.reset();
+                //mMediaRecorder.start();
             } else {
                 startPreview();
             }
@@ -107,9 +111,11 @@ public class MainActivity extends AppCompatActivity {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_main);
 
-        createVideoFolder();
-
-        mMediaRecorder = new MediaRecorder();
+        try {
+            mMediaCodec = MediaCodec.createEncoderByType(MEDIA_CODEC_ENCODER_TYPE);
+        } catch (IOException e) {
+            e.printStackTrace();
+        }
 
         mTextureView = (TextureView) findViewById(R.id.textureView);
 
@@ -121,8 +127,7 @@ public class MainActivity extends AppCompatActivity {
                 if(mIsRecording) {
                     mIsRecording = false;
                     mRecordVideoImageButton.setImageResource(R.mipmap.btn_video_record);
-                    mMediaRecorder.stop();
-                    mMediaRecorder.reset();
+                    mMediaCodec.stop();
                     startPreview();
                 } else {
                     checkWriteStoragePermission();
@@ -158,11 +163,11 @@ public class MainActivity extends AppCompatActivity {
             if(grantResults[0] == PackageManager.PERMISSION_GRANTED) {
                 mIsRecording = true;
                 mRecordVideoImageButton.setImageResource(R.mipmap.btn_video_recording);
-                try {
+                /*try {
                     createVideoFileName();
                 } catch (IOException e) {
                     e.printStackTrace();
-                }
+                }*/
                 Toast.makeText(this, "Permission successfully granted!", Toast.LENGTH_SHORT).show();
             } else {
                 Toast.makeText(this, "App needs to write to external storage permissions to run", Toast.LENGTH_SHORT).show();
@@ -234,13 +239,14 @@ public class MainActivity extends AppCompatActivity {
 
     private void startRecord() {
         try {
-            setupMediaRecorder();
+            // setupMediaRecorder();
+            setupMediaCodec();
 
             SurfaceTexture surfaceTexture = mTextureView.getSurfaceTexture();
             surfaceTexture.setDefaultBufferSize(mPreviewSize.getWidth(), mPreviewSize.getHeight());
             Surface previewSurface = new Surface(surfaceTexture);
 
-            Surface recordSurface = mMediaRecorder.getSurface();
+            Surface recordSurface = mMediaCodec.createInputSurface();
             mCaptureRequestBuilder = mCameraDevice.createCaptureRequest(CameraDevice.TEMPLATE_RECORD);
             mCaptureRequestBuilder.addTarget(previewSurface);
             mCaptureRequestBuilder.addTarget(recordSurface);
@@ -260,6 +266,29 @@ public class MainActivity extends AppCompatActivity {
 
                 }
             }, null);
+
+            mMediaCodec.setCallback(new MediaCodec.Callback() {
+                @Override
+                public void onInputBufferAvailable(@NonNull MediaCodec codec, int index) {
+
+                }
+
+                @Override
+                public void onOutputBufferAvailable(@NonNull MediaCodec codec, int index, @NonNull MediaCodec.BufferInfo info) {
+
+                }
+
+                @Override
+                public void onError(@NonNull MediaCodec codec, @NonNull MediaCodec.CodecException e) {
+                    Toast.makeText(getApplicationContext(), "mMediaCodec onError!", Toast.LENGTH_SHORT).show();
+                }
+
+                @Override
+                public void onOutputFormatChanged(@NonNull MediaCodec codec, @NonNull MediaFormat format) {
+
+                }
+            });
+
         } catch (Exception e) {
             e.printStackTrace();
         }
@@ -321,17 +350,9 @@ public class MainActivity extends AppCompatActivity {
     private void createVideoFolder() {
         File movieFolder = Environment.getExternalStoragePublicDirectory(Environment.DIRECTORY_MOVIES);
         mVideoFolder = new File(movieFolder, "camera2Videos");
-        if(!mVideoFolder.exists()) {
+        if (!mVideoFolder.exists()) {
             mVideoFolder.mkdirs();
         }
-    }
-
-    private File createVideoFileName() throws IOException {
-        String timeStamp = new SimpleDateFormat("yyyyMMdd_HHmmss").format(new Date());
-        String prepend = "VIDEO_" + timeStamp + "_";
-        File videoFile = File.createTempFile(prepend, ".mp4", mVideoFolder);
-        mVideoFileName = videoFile.getAbsolutePath();
-        return videoFile;
     }
 
     private void checkWriteStoragePermission() {
@@ -339,13 +360,15 @@ public class MainActivity extends AppCompatActivity {
             if(ContextCompat.checkSelfPermission(this, Manifest.permission.WRITE_EXTERNAL_STORAGE) == PackageManager.PERMISSION_GRANTED) {
                 mIsRecording = true;
                 mRecordVideoImageButton.setImageResource(R.mipmap.btn_video_recording);
-                try {
+                /*try {
                     createVideoFileName();
                 } catch (IOException e) {
                     e.printStackTrace();
-                }
+                }*/
+                Toast.makeText(this, "checkWriteStoragePermission start codec!", Toast.LENGTH_SHORT).show();
                 startRecord();
-                mMediaRecorder.start();
+                mMediaCodec.start();
+                //mMediaRecorder.start();
             } else {
                 if(shouldShowRequestPermissionRationale(Manifest.permission.WRITE_EXTERNAL_STORAGE)) {
                     Toast.makeText(this, "App needs to be able to save videos", Toast.LENGTH_SHORT).show();
@@ -355,25 +378,25 @@ public class MainActivity extends AppCompatActivity {
         } else {
             mIsRecording = true;
             mRecordVideoImageButton.setImageResource(R.mipmap.btn_video_recording);
-            try {
+            /*try {
                 createVideoFileName();
             } catch (IOException e) {
                 e.printStackTrace();
-            }
+            }*/
             startRecord();
-            mMediaRecorder.start();
+            mMediaCodec.start();
+            //mMediaRecorder.start();
         }
     }
 
-    private void setupMediaRecorder() throws IOException {
-        mMediaRecorder.setVideoSource(MediaRecorder.VideoSource.SURFACE);
-        mMediaRecorder.setOutputFormat(MediaRecorder.OutputFormat.MPEG_4);
-        mMediaRecorder.setOutputFile(mVideoFileName);
-        mMediaRecorder.setVideoEncodingBitRate(5000000);
-        mMediaRecorder.setVideoFrameRate(30);
-        mMediaRecorder.setVideoSize(mVideoSize.getWidth(), mVideoSize.getHeight());
-        mMediaRecorder.setVideoEncoder(MediaRecorder.VideoEncoder.H264);
-        mMediaRecorder.setOrientationHint(90);
-        mMediaRecorder.prepare();
+    private void setupMediaCodec() throws IOException {
+        MediaFormat format = MediaFormat.createVideoFormat(MEDIA_CODEC_ENCODER_TYPE, mVideoSize.getWidth(), mVideoSize.getHeight());
+        int colorFormat = MediaCodecInfo.CodecCapabilities.COLOR_FormatSurface;
+        format.setInteger(MediaFormat.KEY_COLOR_FORMAT, colorFormat);
+        format.setInteger(MediaFormat.KEY_BIT_RATE, 5000000);
+        format.setInteger(MediaFormat.KEY_FRAME_RATE, 30);
+        format.setInteger(MediaFormat.KEY_I_FRAME_INTERVAL, 1);
+
+        mMediaCodec.configure(format, null, null, MediaCodec.CONFIGURE_FLAG_ENCODE);
     }
 }
