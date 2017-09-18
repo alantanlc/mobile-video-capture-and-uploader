@@ -10,17 +10,12 @@ import android.hardware.camera2.CameraCharacteristics;
 import android.hardware.camera2.CameraDevice;
 import android.hardware.camera2.CameraManager;
 import android.hardware.camera2.CaptureRequest;
-import android.media.Image;
-import android.media.ImageReader;
 import android.media.MediaCodec;
 import android.media.MediaCodecInfo;
 import android.media.MediaFormat;
-import android.media.MediaRecorder;
 import android.os.Build;
-import android.os.Environment;
 import android.os.Handler;
 import android.os.HandlerThread;
-import android.support.annotation.NonNull;
 import android.support.v4.content.ContextCompat;
 import android.support.v7.app.AppCompatActivity;
 import android.os.Bundle;
@@ -32,12 +27,9 @@ import android.view.View;
 import android.widget.ImageButton;
 import android.widget.Toast;
 
-import java.io.File;
 import java.io.IOException;
 import java.nio.ByteBuffer;
-import java.text.SimpleDateFormat;
 import java.util.Arrays;
-import java.util.Date;
 
 public class MainActivity extends AppCompatActivity {
     private static final int REQUEST_CAMERA_PERMISSION_RESULT = 0;
@@ -48,7 +40,6 @@ public class MainActivity extends AppCompatActivity {
     private String mCameraId;
     private Size mPreviewSize;
     private Size mVideoSize;
-    // private MediaRecorder mMediaRecorder;
     private MediaCodec mMediaCodec;
     private MediaFormat mMediaFormat;
     private CaptureRequest.Builder mCaptureRequestBuilder;
@@ -56,8 +47,6 @@ public class MainActivity extends AppCompatActivity {
     private Handler mBackgroundHandler;
     private ImageButton mRecordVideoImageButton;
     private boolean mIsRecording;
-    private File mVideoFolder;
-    private String mVideoFileName;
 
     private TextureView.SurfaceTextureListener mSurfaceTextureListener = new TextureView.SurfaceTextureListener() {
         @Override
@@ -90,7 +79,6 @@ public class MainActivity extends AppCompatActivity {
             if(mIsRecording) {
                 startRecord();
                 mMediaCodec.start();
-                //mMediaRecorder.start();
             } else {
                 startPreview();
             }
@@ -134,7 +122,10 @@ public class MainActivity extends AppCompatActivity {
                     mMediaCodec.reset();
                     startPreview();
                 } else {
-                    checkWriteStoragePermission();
+                    mIsRecording = true;
+                    mRecordVideoImageButton.setImageResource(R.mipmap.btn_video_recording);
+                    startRecord();
+                    mMediaCodec.start();
                 }
             }
         });
@@ -167,11 +158,6 @@ public class MainActivity extends AppCompatActivity {
             if(grantResults[0] == PackageManager.PERMISSION_GRANTED) {
                 mIsRecording = true;
                 mRecordVideoImageButton.setImageResource(R.mipmap.btn_video_recording);
-                /*try {
-                    createVideoFileName();
-                } catch (IOException e) {
-                    e.printStackTrace();
-                }*/
                 Toast.makeText(this, "Permission successfully granted!", Toast.LENGTH_SHORT).show();
             } else {
                 Toast.makeText(this, "App needs to write to external storage permissions to run", Toast.LENGTH_SHORT).show();
@@ -243,7 +229,6 @@ public class MainActivity extends AppCompatActivity {
 
     private void startRecord() {
         try {
-            // setupMediaRecorder();
             setupMediaCodec();
 
             SurfaceTexture surfaceTexture = mTextureView.getSurfaceTexture();
@@ -290,7 +275,7 @@ public class MainActivity extends AppCompatActivity {
                 }
 
                 @Override
-                public void onError(@NonNull MediaCodec codec, MediaCodec.CodecException e) {
+                public void onError(MediaCodec codec, MediaCodec.CodecException e) {
                     Toast.makeText(getApplicationContext(), "mMediaCodec onError!", Toast.LENGTH_SHORT).show();
                 }
 
@@ -355,48 +340,6 @@ public class MainActivity extends AppCompatActivity {
             mBackgroundHandler = null;
         } catch (InterruptedException e) {
             e.printStackTrace();
-        }
-    }
-
-    private void createVideoFolder() {
-        File movieFolder = Environment.getExternalStoragePublicDirectory(Environment.DIRECTORY_MOVIES);
-        mVideoFolder = new File(movieFolder, "camera2Videos");
-        if (!mVideoFolder.exists()) {
-            mVideoFolder.mkdirs();
-        }
-    }
-
-    private void checkWriteStoragePermission() {
-        if(Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
-            if(ContextCompat.checkSelfPermission(this, Manifest.permission.WRITE_EXTERNAL_STORAGE) == PackageManager.PERMISSION_GRANTED) {
-                mIsRecording = true;
-                mRecordVideoImageButton.setImageResource(R.mipmap.btn_video_recording);
-                /*try {
-                    createVideoFileName();
-                } catch (IOException e) {
-                    e.printStackTrace();
-                }*/
-                Toast.makeText(this, "checkWriteStoragePermission start codec!", Toast.LENGTH_SHORT).show();
-                startRecord();
-                mMediaCodec.start();
-                //mMediaRecorder.start();
-            } else {
-                if(shouldShowRequestPermissionRationale(Manifest.permission.WRITE_EXTERNAL_STORAGE)) {
-                    Toast.makeText(this, "App needs to be able to save videos", Toast.LENGTH_SHORT).show();
-                }
-                requestPermissions(new String[]{Manifest.permission.WRITE_EXTERNAL_STORAGE}, REQUEST_WRITE_EXTERNAL_STORAGE_PERMISSION_RESULT);
-            }
-        } else {
-            mIsRecording = true;
-            mRecordVideoImageButton.setImageResource(R.mipmap.btn_video_recording);
-            /*try {
-                createVideoFileName();
-            } catch (IOException e) {
-                e.printStackTrace();
-            }*/
-            startRecord();
-            mMediaCodec.start();
-            //mMediaRecorder.start();
         }
     }
 
