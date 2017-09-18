@@ -30,10 +30,12 @@ import android.widget.Toast;
 import java.io.IOException;
 import java.nio.ByteBuffer;
 import java.util.Arrays;
+import java.util.Vector;
 
 public class MainActivity extends AppCompatActivity {
     private static final int REQUEST_CAMERA_PERMISSION_RESULT = 0;
     private static final int REQUEST_WRITE_EXTERNAL_STORAGE_PERMISSION_RESULT = 1;
+    private static final int NUM_FRAMES_PER_REQUEST = 90;
     private static final String MEDIA_CODEC_ENCODER_TYPE = "video/avc";
     private TextureView mTextureView;
     private CameraDevice mCameraDevice;
@@ -47,6 +49,8 @@ public class MainActivity extends AppCompatActivity {
     private Handler mBackgroundHandler;
     private ImageButton mRecordVideoImageButton;
     private boolean mIsRecording;
+    private int mFrameCount;
+    private Vector<byte[]> mBytes;
 
     private TextureView.SurfaceTextureListener mSurfaceTextureListener = new TextureView.SurfaceTextureListener() {
         @Override
@@ -109,6 +113,10 @@ public class MainActivity extends AppCompatActivity {
         }
 
         mTextureView = (TextureView) findViewById(R.id.textureView);
+
+        mBytes = new Vector<byte[]>();
+
+        mFrameCount = 0;
 
         mIsRecording = false;
         mRecordVideoImageButton = (ImageButton) findViewById(R.id.recordVideoImageButton);
@@ -266,10 +274,22 @@ public class MainActivity extends AppCompatActivity {
                 @Override
                 public void onOutputBufferAvailable(MediaCodec codec, int index, MediaCodec.BufferInfo info) {
                     ByteBuffer outputBuffer = codec.getOutputBuffer(index);
-                    // outputBuffer is ready to be processed or rendered.
-                    // ...
+                    byte[] b = new byte[info.size];
+                    outputBuffer.get(b);
+                    mBytes.add(b);
 
-                    Log.i("MainActivity", "Size: " + info.size);
+                    mFrameCount++;
+
+                    if(mFrameCount == NUM_FRAMES_PER_REQUEST) {
+                        // Send HTTP POST request
+                        // ...
+
+                        // Reset frameCount
+                        mFrameCount = 0;
+                        mBytes.clear();
+
+                        Log.i("MainActivity", "Resetting frame count");
+                    }
 
                     codec.releaseOutputBuffer(index, false);
                 }
