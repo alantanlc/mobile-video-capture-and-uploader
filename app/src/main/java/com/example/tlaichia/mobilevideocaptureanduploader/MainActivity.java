@@ -122,10 +122,10 @@ public class MainActivity extends AppCompatActivity {
         setContentView(R.layout.activity_main);
 
         try {
+            createVideoFolder();
+
             // Instantiate variables
             mMediaCodec = MediaCodec.createEncoderByType(MEDIA_CODEC_ENCODER_TYPE);
-            mFileOutputStream = new FileOutputStream("video.h264");
-
             mTextureView = (TextureView) findViewById(R.id.textureView);
             mFrameCount = 0;
             mIsRecording = false;
@@ -143,10 +143,7 @@ public class MainActivity extends AppCompatActivity {
                         mMediaCodec.reset();
                         startPreview();
                     } else {
-                        mIsRecording = true;
-                        mRecordVideoImageButton.setImageResource(R.mipmap.btn_video_recording);
-                        startRecord();
-                        mMediaCodec.start();
+                        checkWriteStoragePermission();
                     }
                 }
             });
@@ -307,7 +304,8 @@ public class MainActivity extends AppCompatActivity {
                             mFileOutputStream.close();
 
                             // Create new FileOutputStream
-                            mFileOutputStream = new FileOutputStream(Integer.toString(fileIndex++) +  ".h264");
+                            File f = createVideoFileName();
+                            mFileOutputStream = new FileOutputStream(f);
 
                             // Reset frameCount
                             mFrameCount = 0;
@@ -404,7 +402,9 @@ public class MainActivity extends AppCompatActivity {
 
     private void createVideoFolder() {
         File movieFolder = Environment.getExternalStoragePublicDirectory(Environment.DIRECTORY_MOVIES);
-        mVideoFolder = new File(movieFolder, "camera2Videos");
+        String timeStamp = new SimpleDateFormat("yyyyMMdd_HHmmss").format(new Date());
+        String prepend = "MVCAU_" + timeStamp;
+        mVideoFolder = new File(movieFolder, prepend);
         if(!mVideoFolder.exists()) {
             mVideoFolder.mkdirs();
         }
@@ -424,10 +424,13 @@ public class MainActivity extends AppCompatActivity {
                 mIsRecording = true;
                 mRecordVideoImageButton.setImageResource(R.mipmap.btn_video_recording);
                 try {
-                    createVideoFileName();
+                    File f = createVideoFileName();
+                    mFileOutputStream = new FileOutputStream(f);
                 } catch (IOException e) {
                     e.printStackTrace();
                 }
+                startRecord();
+                mMediaCodec.start();
             } else {
                 if(shouldShowRequestPermissionRationale(Manifest.permission.WRITE_EXTERNAL_STORAGE)) {
                     Toast.makeText(this, "App needs to be able to save videos", Toast.LENGTH_SHORT).show();
@@ -442,6 +445,8 @@ public class MainActivity extends AppCompatActivity {
             } catch (IOException e) {
                 e.printStackTrace();
             }
+            startRecord();
+            mMediaCodec.start();
         }
     }
 }
