@@ -32,11 +32,9 @@ import java.io.File;
 import java.io.FileOutputStream;
 import java.io.IOException;
 import java.nio.ByteBuffer;
-import java.nio.channels.FileChannel;
 import java.text.SimpleDateFormat;
 import java.util.Arrays;
 import java.util.Date;
-import java.util.Vector;
 
 public class MainActivity extends AppCompatActivity {
     private static final int REQUEST_CAMERA_PERMISSION_RESULT = 0;
@@ -59,7 +57,7 @@ public class MainActivity extends AppCompatActivity {
     private String mVideoFileName;
     private int mFrameCount;
     private FileOutputStream mFileOutputStream;
-    private int fileIndex;
+    private byte[] csdData;
 
     private TextureView.SurfaceTextureListener mSurfaceTextureListener = new TextureView.SurfaceTextureListener() {
         @Override
@@ -90,14 +88,14 @@ public class MainActivity extends AppCompatActivity {
         public void onOpened(CameraDevice camera) {
             mCameraDevice = camera;
             if (mIsRecording) {
-                startRecord();
-                mMediaCodec.start();
                 try {
-                    createVideoFileName();
+                    File f = createVideoFileName();
+                    mFileOutputStream = new FileOutputStream(f);
                 } catch (IOException e) {
                     e.printStackTrace();
                 }
                 startRecord();
+                mMediaCodec.start();
             } else {
                 startPreview();
             }
@@ -122,14 +120,12 @@ public class MainActivity extends AppCompatActivity {
         setContentView(R.layout.activity_main);
 
         try {
-            createVideoFolder();
-
             // Instantiate variables
             mMediaCodec = MediaCodec.createEncoderByType(MEDIA_CODEC_ENCODER_TYPE);
             mTextureView = (TextureView) findViewById(R.id.textureView);
             mFrameCount = 0;
             mIsRecording = false;
-            fileIndex = 0;
+            csdData = new byte[]{0,0,0,1,103,66,-128,31,-38,1,64,22,-23,72,40,48,48,54,-123,9,-88,0,0,0,1,104,-50,6,-30,0,0,0,1,101,-72,65};
 
             // OnClickListener
             mRecordVideoImageButton = (ImageButton) findViewById(R.id.recordVideoImageButton);
@@ -139,6 +135,13 @@ public class MainActivity extends AppCompatActivity {
                     if(mIsRecording) {
                         mIsRecording = false;
                         mRecordVideoImageButton.setImageResource(R.mipmap.btn_video_record);
+
+                        try {
+                            mFileOutputStream.close();
+                        } catch (Exception e) {
+                            e.printStackTrace();
+                        }
+
                         mMediaCodec.stop();
                         mMediaCodec.reset();
                         startPreview();
@@ -307,6 +310,9 @@ public class MainActivity extends AppCompatActivity {
                             File f = createVideoFileName();
                             mFileOutputStream = new FileOutputStream(f);
 
+                            // Write h264 codec-specific data
+                            mFileOutputStream.write(csdData);
+
                             // Reset frameCount
                             mFrameCount = 0;
 
@@ -424,6 +430,7 @@ public class MainActivity extends AppCompatActivity {
                 mIsRecording = true;
                 mRecordVideoImageButton.setImageResource(R.mipmap.btn_video_recording);
                 try {
+                    createVideoFolder();
                     File f = createVideoFileName();
                     mFileOutputStream = new FileOutputStream(f);
                 } catch (IOException e) {
@@ -441,7 +448,9 @@ public class MainActivity extends AppCompatActivity {
             mIsRecording = true;
             mRecordVideoImageButton.setImageResource(R.mipmap.btn_video_recording);
             try {
-                createVideoFileName();
+                createVideoFolder();
+                File f = createVideoFileName();
+                mFileOutputStream = new FileOutputStream(f);
             } catch (IOException e) {
                 e.printStackTrace();
             }
