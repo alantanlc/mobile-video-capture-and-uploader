@@ -55,6 +55,8 @@ public class MainActivity extends AppCompatActivity {
     private boolean mIsRecording;
     private File mVideoFolder;
     private String mVideoFileName;
+    private String mVideoFullPath;
+    private String[] mVideoFileInfo;
     private int mFrameCount;
     private FileOutputStream mFileOutputStream;
     private byte[] csdData;
@@ -125,8 +127,8 @@ public class MainActivity extends AppCompatActivity {
             mMediaCodec = MediaCodec.createEncoderByType(MEDIA_CODEC_ENCODER_TYPE);
             mTextureView = (TextureView) findViewById(R.id.textureView);
             mIsRecording = false;
-            //csdData = new byte[]{0,0,0,1,103,66,-128,31,-38,1,64,22,-23,72,40,48,48,54,-123,9,-88,0,0,0,1,104,-50,6,-30};
             csdData = new byte[]{0,0,0,1,103,66,-128,31,-38,1,64,22,-23,72,40,48,48,54,-123,9,-88,0,0,0,1,104,-50,6,-30};
+            mVideoFileInfo = new String[4];
 
             // OnClickListener
             mRecordVideoImageButton = (ImageButton) findViewById(R.id.recordVideoImageButton);
@@ -138,7 +140,7 @@ public class MainActivity extends AppCompatActivity {
                         mRecordVideoImageButton.setImageResource(R.mipmap.btn_video_record);
 
                         try {// AsyncTask to perform MP4Parser operations
-                            new MP4UploaderTask().execute(mVideoFileName);
+                            new MP4UploaderTask().execute(mVideoFileInfo.clone());
 
                             // Close file and create new file
                             mFileOutputStream.close();
@@ -312,7 +314,8 @@ public class MainActivity extends AppCompatActivity {
 
                         if(mFrameCount == NUM_FRAMES_PER_REQUEST) {
                             // AsyncTask to perform MP4Parser operations
-                            new MP4UploaderTask().execute(mVideoFileName);
+
+                            new MP4UploaderTask().execute(mVideoFileInfo.clone());
 
                             // Close file and create new file
                             mFileOutputStream.close();
@@ -425,13 +428,18 @@ public class MainActivity extends AppCompatActivity {
         if(!mVideoFolder.exists()) {
             mVideoFolder.mkdirs();
         }
+        mVideoFileInfo[0] = mVideoFolder.getAbsolutePath();
+        mVideoFileInfo[3] = prepend;
     }
 
     private File createVideoFileName() throws IOException {
         String timeStamp = new SimpleDateFormat("yyyyMMdd_HHmmss").format(new Date());
-        String prepend = "VIDEO_" + timeStamp + "_";
-        File videoFile = File.createTempFile(prepend, ".h264", mVideoFolder);
-        mVideoFileName = videoFile.getAbsolutePath();
+        mVideoFileName = "VIDEO_" + timeStamp;
+        mVideoFileInfo[1] = mVideoFileName;
+        File videoFile = File.createTempFile(mVideoFileName, ".h264", mVideoFolder);
+        mVideoFullPath = videoFile.getAbsolutePath();
+        mVideoFileInfo[2] = mVideoFullPath;
+
         return videoFile;
     }
 

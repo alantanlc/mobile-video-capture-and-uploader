@@ -27,5 +27,6 @@ dependencies {
     compile 'com.android.support:appcompat-v7:25.3.1'
     compile 'com.android.support.constraint:constraint-layout:1.0.2'
     compile 'com.googlecode.mp4parser:isoparser:1.1.21'
+    compile group: 'cz.msebera.android' , name: 'httpclient', version: '4.4.1.1'
     testCompile 'junit:junit:4.12'
 }
