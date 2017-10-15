@@ -58,6 +58,7 @@ public class MainActivity extends AppCompatActivity {
     private int mFrameCount;
     private FileOutputStream mFileOutputStream;
     private byte[] csdData;
+    private boolean isFirstFrame;
 
     private TextureView.SurfaceTextureListener mSurfaceTextureListener = new TextureView.SurfaceTextureListener() {
         @Override
@@ -125,7 +126,9 @@ public class MainActivity extends AppCompatActivity {
             mTextureView = (TextureView) findViewById(R.id.textureView);
             mFrameCount = 0;
             mIsRecording = false;
-            csdData = new byte[]{0,0,0,1,103,66,-128,31,-38,1,64,22,-23,72,40,48,48,54,-123,9,-88,0,0,0,1,104,-50,6,-30,0,0,0,1,101,-72,65};
+            //csdData = new byte[]{0,0,0,1,103,66,-128,31,-38,1,64,22,-23,72,40,48,48,54,-123,9,-88,0,0,0,1,104,-50,6,-30};
+            csdData = new byte[]{0,0,0,1,103,66,-128,31,-38,1,64,22,-23,72,40,48,48,54,-123,9,-88,0,0,0,1,104,-50,6,-30};
+            isFirstFrame = true;
 
             // OnClickListener
             mRecordVideoImageButton = (ImageButton) findViewById(R.id.recordVideoImageButton);
@@ -300,7 +303,11 @@ public class MainActivity extends AppCompatActivity {
                         mFileOutputStream.write(b);
 
                         // Increment frame count
-                        mFrameCount++;
+                        if(!isFirstFrame) {
+                            mFrameCount++;
+                        } else {
+                            isFirstFrame = false;
+                        }
 
                         if(mFrameCount == NUM_FRAMES_PER_REQUEST) {
                             // Close file and create new file
