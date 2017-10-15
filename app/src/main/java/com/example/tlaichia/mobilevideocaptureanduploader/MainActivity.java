@@ -124,11 +124,9 @@ public class MainActivity extends AppCompatActivity {
             // Instantiate variables
             mMediaCodec = MediaCodec.createEncoderByType(MEDIA_CODEC_ENCODER_TYPE);
             mTextureView = (TextureView) findViewById(R.id.textureView);
-            mFrameCount = 0;
             mIsRecording = false;
             //csdData = new byte[]{0,0,0,1,103,66,-128,31,-38,1,64,22,-23,72,40,48,48,54,-123,9,-88,0,0,0,1,104,-50,6,-30};
             csdData = new byte[]{0,0,0,1,103,66,-128,31,-38,1,64,22,-23,72,40,48,48,54,-123,9,-88,0,0,0,1,104,-50,6,-30};
-            isFirstFrame = true;
 
             // OnClickListener
             mRecordVideoImageButton = (ImageButton) findViewById(R.id.recordVideoImageButton);
@@ -435,6 +433,8 @@ public class MainActivity extends AppCompatActivity {
         if(Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
             if(ContextCompat.checkSelfPermission(this, Manifest.permission.WRITE_EXTERNAL_STORAGE) == PackageManager.PERMISSION_GRANTED) {
                 mIsRecording = true;
+                mFrameCount = 0;
+                isFirstFrame = true;
                 mRecordVideoImageButton.setImageResource(R.mipmap.btn_video_recording);
                 try {
                     createVideoFolder();
@@ -453,6 +453,8 @@ public class MainActivity extends AppCompatActivity {
             }
         } else {
             mIsRecording = true;
+            mFrameCount = 0;
+            isFirstFrame = true;
             mRecordVideoImageButton.setImageResource(R.mipmap.btn_video_recording);
             try {
                 createVideoFolder();
