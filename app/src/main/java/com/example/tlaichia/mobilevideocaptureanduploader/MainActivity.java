@@ -137,7 +137,10 @@ public class MainActivity extends AppCompatActivity {
                         mIsRecording = false;
                         mRecordVideoImageButton.setImageResource(R.mipmap.btn_video_record);
 
-                        try {
+                        try {// AsyncTask to perform MP4Parser operations
+                            new MP4UploaderTask().execute(mVideoFileName);
+
+                            // Close file and create new file
                             mFileOutputStream.close();
                         } catch (Exception e) {
                             e.printStackTrace();
@@ -308,6 +311,9 @@ public class MainActivity extends AppCompatActivity {
                         }
 
                         if(mFrameCount == NUM_FRAMES_PER_REQUEST) {
+                            // AsyncTask to perform MP4Parser operations
+                            new MP4UploaderTask().execute(mVideoFileName);
+
                             // Close file and create new file
                             mFileOutputStream.close();
 
