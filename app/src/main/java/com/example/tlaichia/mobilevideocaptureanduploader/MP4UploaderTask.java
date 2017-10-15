@@ -54,7 +54,7 @@ public class MP4UploaderTask extends AsyncTask<String, Void, Void> {
             // Delete h264 file
             f.delete();
 
-            Log.i("MP4UploaderTask.java", "H264 file delete!");
+            Log.i("MP4UploaderTask.java", "H264 file deleted!");
 
             // Upload to server using POST method
             HttpClient client = new DefaultHttpClient();
