@@ -10,9 +10,12 @@ import android.hardware.camera2.CameraCharacteristics;
 import android.hardware.camera2.CameraDevice;
 import android.hardware.camera2.CameraManager;
 import android.hardware.camera2.CaptureRequest;
+import android.media.AudioFormat;
+import android.media.AudioRecord;
 import android.media.MediaCodec;
 import android.media.MediaCodecInfo;
 import android.media.MediaFormat;
+import android.media.MediaRecorder;
 import android.os.Build;
 import android.os.Environment;
 import android.os.Handler;
@@ -39,15 +42,20 @@ import java.util.Date;
 public class MainActivity extends AppCompatActivity {
     private static final int REQUEST_CAMERA_PERMISSION_RESULT = 0;
     private static final int REQUEST_WRITE_EXTERNAL_STORAGE_PERMISSION_RESULT = 1;
+    private static final int REQUEST_AUDIO_RECORD_PERMISSION_RESULT = 0;
     private static final int NUM_FRAMES_PER_REQUEST = 90;
     private static final String MEDIA_CODEC_ENCODER_TYPE = "video/avc";
+    private static final String AUDIO_CODEC_ENCODER_TYPE = "audio/mp4a-latm";
+    private static final int AUDIO_SAMPLE_RATE = 48000;
     private TextureView mTextureView;
     private CameraDevice mCameraDevice;
     private String mCameraId;
     private Size mPreviewSize;
     private Size mVideoSize;
     private MediaCodec mMediaCodec;
+    private MediaCodec mAudioCodec;
     private MediaFormat mMediaFormat;
+    private MediaFormat mAudioFormat;
     private CaptureRequest.Builder mCaptureRequestBuilder;
     private HandlerThread mBackgroundHandlerThread;
     private Handler mBackgroundHandler;
@@ -61,6 +69,10 @@ public class MainActivity extends AppCompatActivity {
     private FileOutputStream mFileOutputStream;
     private byte[] csdData;
     private boolean isFirstFrame;
+    private int mAudioRecordBufferSize;
+    private byte[] mAudioBuffer;
+    private AudioRecord mAudioRecord;
+    private int mAudioMarkerPosition;
 
     private TextureView.SurfaceTextureListener mSurfaceTextureListener = new TextureView.SurfaceTextureListener() {
         @Override
@@ -99,6 +111,7 @@ public class MainActivity extends AppCompatActivity {
                 }
                 startRecord();
                 mMediaCodec.start();
+                mAudioCodec.start();
             } else {
                 startPreview();
             }
@@ -125,6 +138,7 @@ public class MainActivity extends AppCompatActivity {
         try {
             // Instantiate variables
             mMediaCodec = MediaCodec.createEncoderByType(MEDIA_CODEC_ENCODER_TYPE);
+            mAudioCodec = MediaCodec.createEncoderByType(AUDIO_CODEC_ENCODER_TYPE);
             mTextureView = (TextureView) findViewById(R.id.textureView);
             mIsRecording = false;
             csdData = new byte[]{0,0,0,1,103,66,-128,31,-38,1,64,22,-23,72,40,48,48,54,-123,9,-88,0,0,0,1,104,-50,6,-30};
@@ -149,7 +163,11 @@ public class MainActivity extends AppCompatActivity {
                         }
 
                         mMediaCodec.stop();
+                        mAudioCodec.stop();
+                        mAudioRecord.stop();
+                        mAudioRecord.release();
                         mMediaCodec.reset();
+                        mAudioCodec.reset();
                         startPreview();
                     } else {
                         checkWriteStoragePermission();
@@ -194,11 +212,19 @@ public class MainActivity extends AppCompatActivity {
                 Toast.makeText(this, "App needs to write to external storage permissions to run", Toast.LENGTH_SHORT).show();
             }
         }
+
+        if(requestCode == REQUEST_AUDIO_RECORD_PERMISSION_RESULT) {
+            if(grantResults[0] != PackageManager.PERMISSION_GRANTED) {
+                Toast.makeText(getApplicationContext(), "App needs record audio permissions to run", Toast.LENGTH_SHORT).show();
+            }
+        }
     }
 
     @Override
     protected void onPause() {
         closeCamera();
+
+        mAudioRecord.release();
 
         stopBackgroundThread();
 
@@ -242,16 +268,28 @@ public class MainActivity extends AppCompatActivity {
         CameraManager cameraManager = (CameraManager) getSystemService(Context.CAMERA_SERVICE);
         try {
             if(Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
+                // Camera permissions
                 if(ContextCompat.checkSelfPermission(this, Manifest.permission.CAMERA) == PackageManager.PERMISSION_GRANTED) {
                     cameraManager.openCamera(mCameraId, mCameraDeviceStateCallback, mBackgroundHandler);
                 } else {
                     if (shouldShowRequestPermissionRationale(Manifest.permission.CAMERA)) {
                         Toast.makeText(this, "App requires access to camera", Toast.LENGTH_SHORT).show();
                     }
-                    requestPermissions(new String[] { Manifest.permission.CAMERA}, REQUEST_CAMERA_PERMISSION_RESULT);
+                    requestPermissions(new String[] { Manifest.permission.CAMERA }, REQUEST_CAMERA_PERMISSION_RESULT);
+                }
+
+                // Record audio permissions
+                if(ContextCompat.checkSelfPermission(this, Manifest.permission.RECORD_AUDIO) == PackageManager.PERMISSION_GRANTED) {
+                    setupAudioRecord();
+                } else {
+                    if (shouldShowRequestPermissionRationale(Manifest.permission.RECORD_AUDIO)) {
+                        Toast.makeText(this, "App requires permission to record audio", Toast.LENGTH_SHORT).show();
+                    }
+                    requestPermissions(new String[] { Manifest.permission.RECORD_AUDIO }, REQUEST_AUDIO_RECORD_PERMISSION_RESULT);
                 }
             } else {
                 cameraManager.openCamera(mCameraId, mCameraDeviceStateCallback, mBackgroundHandler);
+                setupAudioRecord();
             }
         } catch (CameraAccessException e) {
             e.printStackTrace();
@@ -261,6 +299,7 @@ public class MainActivity extends AppCompatActivity {
     private void startRecord() {
         try {
             setupMediaCodec();
+            setupAudioCodec();
 
             SurfaceTexture surfaceTexture = mTextureView.getSurfaceTexture();
             surfaceTexture.setDefaultBufferSize(mPreviewSize.getWidth(), mPreviewSize.getHeight());
@@ -277,6 +316,7 @@ public class MainActivity extends AppCompatActivity {
                 public void onConfigured(CameraCaptureSession session) {
                     try {
                         session.setRepeatingRequest(mCaptureRequestBuilder.build(), null, null);
+
                     } catch (CameraAccessException e) {
                         e.printStackTrace();
                     }
@@ -288,6 +328,7 @@ public class MainActivity extends AppCompatActivity {
                 }
             }, null);
 
+            // Video codec
             mMediaCodec.setCallback(new MediaCodec.Callback() {
                 @Override
                 public void onInputBufferAvailable(MediaCodec codec, int index) {
@@ -314,7 +355,6 @@ public class MainActivity extends AppCompatActivity {
 
                         if(mFrameCount == NUM_FRAMES_PER_REQUEST) {
                             // AsyncTask to perform MP4Parser operations
-
                             new MP4UploaderTask().execute(mVideoFileInfo.clone());
 
                             // Close file and create new file
@@ -351,6 +391,62 @@ public class MainActivity extends AppCompatActivity {
                 }
             });
 
+            // Audio
+            for(int i = 0; i < NUM_FRAMES_PER_REQUEST; ++i) {
+                mAudioRecord.setNotificationMarkerPosition((i+1)*(AUDIO_SAMPLE_RATE/30));
+            }
+
+            mAudioRecord.setRecordPositionUpdateListener(new AudioRecord.OnRecordPositionUpdateListener() {
+                @Override
+                public void onMarkerReached(AudioRecord recorder) {
+                    int z = (mAudioMarkerPosition+1)*(AUDIO_SAMPLE_RATE/30);
+
+                    // Reset notification marker
+                    recorder.setNotificationMarkerPosition((mAudioMarkerPosition+1)*(AUDIO_SAMPLE_RATE/30));
+
+                    byte[] b = new byte[AUDIO_SAMPLE_RATE/30];
+                    recorder.read(b, 0, AUDIO_SAMPLE_RATE/30);
+
+                    // Encode audio
+                    //int inputBufferId = mAudioCodec.dequeueInputBuffer(34000);
+                    //if(inputBufferId >= 0) {
+                        //ByteBuffer inputBuffer = mAudioCodec.getInputBuffer(inputBufferId);
+                        // Fill inputBuffer with valid data
+                        //mAudioRecord.read(inputBuffer, AUDIO_SAMPLE_RATE/30);
+                        //byte b[] = new byte[AUDIO_SAMPLE_RATE/30];
+                        //int n = recorder.read(b, (mAudioMarkerPosition+1)*(AUDIO_SAMPLE_RATE/30), 10);
+                        //inputBuffer.put(mAudioBuffer, mAudioMarkerPosition*AUDIO_SAMPLE_RATE/30, AUDIO_SAMPLE_RATE/30);
+                        //mAudioCodec.queueInputBuffer(inputBufferId, 0, AUDIO_SAMPLE_RATE/30, 0, 0);
+                    //}
+
+                    // Write audio to file
+                    // ...
+
+                    // Increment marker position
+                    mAudioMarkerPosition++;
+
+                    if(mAudioMarkerPosition == NUM_FRAMES_PER_REQUEST) {
+                        // Close file and create new file
+                        // ...
+
+                        // Create new filestream
+                        // ...
+
+                        // Reset marker position
+                        mAudioMarkerPosition = 0;
+
+                        Log.i("MainActivity", "Resetting audio marker position");
+                    }
+                }
+
+                @Override
+                public void onPeriodicNotification(AudioRecord recorder) {
+
+                }
+            });
+
+            // Start recording
+            mAudioRecord.startRecording();
         } catch (Exception e) {
             e.printStackTrace();
         }
@@ -416,8 +512,27 @@ public class MainActivity extends AppCompatActivity {
         mMediaFormat.setInteger(MediaFormat.KEY_BIT_RATE, 5000000);
         mMediaFormat.setInteger(MediaFormat.KEY_FRAME_RATE, 30);
         mMediaFormat.setInteger(MediaFormat.KEY_I_FRAME_INTERVAL, 1);
-
         mMediaCodec.configure(mMediaFormat, null, null, MediaCodec.CONFIGURE_FLAG_ENCODE);
+    }
+
+    private void setupAudioCodec() throws IOException {
+        mAudioFormat = MediaFormat.createAudioFormat("audio/mp4a-latm", AUDIO_SAMPLE_RATE, 1);
+        mAudioFormat.setInteger(MediaFormat.KEY_AAC_PROFILE, MediaCodecInfo.CodecProfileLevel.AACObjectLC);
+        mAudioFormat.setInteger(MediaFormat.KEY_BIT_RATE, 128 * 1024);
+        mAudioCodec.configure(mAudioFormat, null, null, MediaCodec.CONFIGURE_FLAG_ENCODE);
+    }
+
+    private void setupAudioRecord() {
+        /*mAudioRecordBufferSize = AudioRecord.getMinBufferSize(AUDIO_SAMPLE_RATE, AudioFormat.CHANNEL_IN_MONO, AudioFormat.ENCODING_PCM_8BIT);
+        if(mAudioRecordBufferSize == AudioRecord.ERROR || mAudioRecordBufferSize == AudioRecord.ERROR_BAD_VALUE) {
+            Toast.makeText(this, "mAudioRecordBufferSize error bad value!", Toast.LENGTH_SHORT).show();
+            mAudioRecordBufferSize = AUDIO_SAMPLE_RATE * 2;
+        }*/
+        mAudioBuffer = new byte[AUDIO_SAMPLE_RATE * 3];
+        mAudioRecord = new AudioRecord(MediaRecorder.AudioSource.DEFAULT, AUDIO_SAMPLE_RATE, AudioFormat.CHANNEL_IN_MONO, AudioFormat.ENCODING_PCM_8BIT, AUDIO_SAMPLE_RATE * 3);
+        if(mAudioRecord.getState() != AudioRecord.STATE_INITIALIZED) {
+            Toast.makeText(this, "Failed to initialize AudioRecord!", Toast.LENGTH_SHORT).show();
+        }
     }
 
     private void createVideoFolder() {
@@ -448,6 +563,7 @@ public class MainActivity extends AppCompatActivity {
             if(ContextCompat.checkSelfPermission(this, Manifest.permission.WRITE_EXTERNAL_STORAGE) == PackageManager.PERMISSION_GRANTED) {
                 mIsRecording = true;
                 mFrameCount = 0;
+                mAudioMarkerPosition = 0;
                 isFirstFrame = true;
                 mRecordVideoImageButton.setImageResource(R.mipmap.btn_video_recording);
                 try {
@@ -459,6 +575,7 @@ public class MainActivity extends AppCompatActivity {
                 }
                 startRecord();
                 mMediaCodec.start();
+                mAudioCodec.start();
             } else {
                 if(shouldShowRequestPermissionRationale(Manifest.permission.WRITE_EXTERNAL_STORAGE)) {
                     Toast.makeText(this, "App needs to be able to save videos", Toast.LENGTH_SHORT).show();
@@ -468,6 +585,7 @@ public class MainActivity extends AppCompatActivity {
         } else {
             mIsRecording = true;
             mFrameCount = 0;
+            mAudioMarkerPosition = 0;
             isFirstFrame = true;
             mRecordVideoImageButton.setImageResource(R.mipmap.btn_video_recording);
             try {
@@ -479,6 +597,7 @@ public class MainActivity extends AppCompatActivity {
             }
             startRecord();
             mMediaCodec.start();
+            mAudioCodec.start();
         }
     }
 }

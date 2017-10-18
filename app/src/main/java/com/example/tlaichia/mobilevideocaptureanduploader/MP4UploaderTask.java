@@ -11,23 +11,14 @@ import com.googlecode.mp4parser.authoring.tracks.h264.H264TrackImpl;
 
 import java.io.File;
 import java.io.FileOutputStream;
-import java.io.InputStreamReader;
-import java.io.Reader;
 import java.nio.channels.FileChannel;
-import java.util.ArrayList;
-import java.util.List;
-
 import cz.msebera.android.httpclient.HttpEntity;
 import cz.msebera.android.httpclient.HttpResponse;
-import cz.msebera.android.httpclient.NameValuePair;
 import cz.msebera.android.httpclient.client.HttpClient;
-import cz.msebera.android.httpclient.client.entity.UrlEncodedFormEntity;
 import cz.msebera.android.httpclient.client.methods.HttpPost;
 import cz.msebera.android.httpclient.entity.mime.MultipartEntityBuilder;
 import cz.msebera.android.httpclient.entity.mime.content.FileBody;
-import cz.msebera.android.httpclient.entity.mime.content.StringBody;
 import cz.msebera.android.httpclient.impl.client.DefaultHttpClient;
-import cz.msebera.android.httpclient.message.BasicNameValuePair;
 
 /**
  * Created by TLaiChia on 15-Oct-17.
@@ -68,7 +59,7 @@ public class MP4UploaderTask extends AsyncTask<String, Void, Void> {
             post.setEntity(entity);
 
             // Execute http post
-            HttpResponse response = client.execute(post);
+            // HttpResponse response = client.execute(post);
 
             Log.i("MP4UploaderTask.java", "MP4 segment uploaded!");
         } catch (Exception e) {
