@@ -43,7 +43,7 @@ public class MP4UploaderTask extends AsyncTask<String, Void, Void> {
             Log.i("MP4UploaderTask.java", "MP4 file generated!");
 
             // Delete h264 file
-            f.delete();
+            //f.delete();
 
             Log.i("MP4UploaderTask.java", "H264 file deleted!");
 

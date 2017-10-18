@@ -46,7 +46,7 @@ public class MainActivity extends AppCompatActivity {
     private static final int NUM_FRAMES_PER_REQUEST = 90;
     private static final String MEDIA_CODEC_ENCODER_TYPE = "video/avc";
     private static final String AUDIO_CODEC_ENCODER_TYPE = "audio/mp4a-latm";
-    private static final int AUDIO_SAMPLE_RATE = 48000;
+    private static final int AUDIO_SAMPLE_RATE = 44100;
     private TextureView mTextureView;
     private CameraDevice mCameraDevice;
     private String mCameraId;
@@ -67,6 +67,7 @@ public class MainActivity extends AppCompatActivity {
     private String[] mVideoFileInfo;
     private int mFrameCount;
     private FileOutputStream mFileOutputStream;
+    private FileOutputStream mAudioFileOutputStream;
     private byte[] csdData;
     private boolean isFirstFrame;
     private int mAudioRecordBufferSize;
@@ -105,7 +106,9 @@ public class MainActivity extends AppCompatActivity {
             if (mIsRecording) {
                 try {
                     File f = createVideoFileName();
+                    File audioFile = createAudioFileName();
                     mFileOutputStream = new FileOutputStream(f);
+                    mAudioFileOutputStream = new FileOutputStream(audioFile);
                 } catch (IOException e) {
                     e.printStackTrace();
                 }
@@ -158,6 +161,7 @@ public class MainActivity extends AppCompatActivity {
 
                             // Close file and create new file
                             mFileOutputStream.close();
+                            mAudioFileOutputStream.close();
                         } catch (Exception e) {
                             e.printStackTrace();
                         }
@@ -376,6 +380,7 @@ public class MainActivity extends AppCompatActivity {
                         // Release buffer
                         codec.releaseOutputBuffer(index, false);
                     } catch (Exception e) {
+                        Log.e("MainActivity.java", "Exception occurred in onOutputBufferAvailable");
                         e.printStackTrace();
                     }
                 }
@@ -399,17 +404,21 @@ public class MainActivity extends AppCompatActivity {
             mAudioRecord.setRecordPositionUpdateListener(new AudioRecord.OnRecordPositionUpdateListener() {
                 @Override
                 public void onMarkerReached(AudioRecord recorder) {
-                    int z = (mAudioMarkerPosition+1)*(AUDIO_SAMPLE_RATE/30);
+                    try {
+                        int z = (mAudioMarkerPosition+1)*(AUDIO_SAMPLE_RATE/30);
 
-                    // Reset notification marker
-                    recorder.setNotificationMarkerPosition((mAudioMarkerPosition+1)*(AUDIO_SAMPLE_RATE/30));
+                        // Reset notification marker
+                        recorder.setNotificationMarkerPosition((mAudioMarkerPosition+1)*(AUDIO_SAMPLE_RATE/30));
 
-                    byte[] b = new byte[AUDIO_SAMPLE_RATE/30];
-                    recorder.read(b, 0, AUDIO_SAMPLE_RATE/30);
+                        byte[] b = new byte[AUDIO_SAMPLE_RATE/30];
+                        recorder.read(b, 0, AUDIO_SAMPLE_RATE/30);
 
-                    // Encode audio
-                    //int inputBufferId = mAudioCodec.dequeueInputBuffer(34000);
-                    //if(inputBufferId >= 0) {
+                        // Write data to file
+                        mAudioFileOutputStream.write(b);
+
+                        // Encode audio
+                        //int inputBufferId = mAudioCodec.dequeueInputBuffer(34000);
+                        //if(inputBufferId >= 0) {
                         //ByteBuffer inputBuffer = mAudioCodec.getInputBuffer(inputBufferId);
                         // Fill inputBuffer with valid data
                         //mAudioRecord.read(inputBuffer, AUDIO_SAMPLE_RATE/30);
@@ -417,25 +426,30 @@ public class MainActivity extends AppCompatActivity {
                         //int n = recorder.read(b, (mAudioMarkerPosition+1)*(AUDIO_SAMPLE_RATE/30), 10);
                         //inputBuffer.put(mAudioBuffer, mAudioMarkerPosition*AUDIO_SAMPLE_RATE/30, AUDIO_SAMPLE_RATE/30);
                         //mAudioCodec.queueInputBuffer(inputBufferId, 0, AUDIO_SAMPLE_RATE/30, 0, 0);
-                    //}
+                        //}
 
-                    // Write audio to file
-                    // ...
-
-                    // Increment marker position
-                    mAudioMarkerPosition++;
-
-                    if(mAudioMarkerPosition == NUM_FRAMES_PER_REQUEST) {
-                        // Close file and create new file
+                        // Write audio to file
                         // ...
 
-                        // Create new filestream
-                        // ...
+                        // Increment marker position
+                        mAudioMarkerPosition++;
 
-                        // Reset marker position
-                        mAudioMarkerPosition = 0;
+                        if(mAudioMarkerPosition == NUM_FRAMES_PER_REQUEST) {
+                            // Close file and create new file
+                            mAudioFileOutputStream.close();
 
-                        Log.i("MainActivity", "Resetting audio marker position");
+                            // Create new filestream
+                            File f = createAudioFileName();
+                            mAudioFileOutputStream = new FileOutputStream(f);
+
+                            // Reset marker position
+                            mAudioMarkerPosition = 0;
+
+                            Log.i("MainActivity", "Resetting audio marker position");
+                        }
+                    } catch (Exception e) {
+                        Log.e("MainActivity.java", "Exception occurred in onMarkerReached");
+                        e.printStackTrace();
                     }
                 }
 
@@ -549,13 +563,24 @@ public class MainActivity extends AppCompatActivity {
 
     private File createVideoFileName() throws IOException {
         String timeStamp = new SimpleDateFormat("yyyyMMdd_HHmmss").format(new Date());
-        mVideoFileName = "VIDEO_" + timeStamp;
+        mVideoFileName = "VIDEO_" + timeStamp + "_";
         mVideoFileInfo[1] = mVideoFileName;
         File videoFile = File.createTempFile(mVideoFileName, ".h264", mVideoFolder);
         mVideoFullPath = videoFile.getAbsolutePath();
         mVideoFileInfo[2] = mVideoFullPath;
 
         return videoFile;
+    }
+
+    private File createAudioFileName() throws IOException {
+        String timeStamp = new SimpleDateFormat("yyyyMMdd_HHmmss").format(new Date());
+        String mAudioFileName = "AUDIO_" + timeStamp + "_";
+        //mVideoFileInfo[1] = mVideoFileName;
+        File audioFile = File.createTempFile(mAudioFileName, ".aac", mVideoFolder);
+        //mVideoFullPath = videoFile.getAbsolutePath();
+        //mVideoFileInfo[2] = mVideoFullPath;
+
+        return audioFile;
     }
 
     private void checkWriteStoragePermission() {
@@ -569,7 +594,9 @@ public class MainActivity extends AppCompatActivity {
                 try {
                     createVideoFolder();
                     File f = createVideoFileName();
+                    File audioFile = createAudioFileName();
                     mFileOutputStream = new FileOutputStream(f);
+                    mAudioFileOutputStream = new FileOutputStream(audioFile);
                 } catch (IOException e) {
                     e.printStackTrace();
                 }
@@ -591,7 +618,9 @@ public class MainActivity extends AppCompatActivity {
             try {
                 createVideoFolder();
                 File f = createVideoFileName();
+                File audioFile = createAudioFileName();
                 mFileOutputStream = new FileOutputStream(f);
+                mAudioFileOutputStream = new FileOutputStream(audioFile);
             } catch (IOException e) {
                 e.printStackTrace();
             }
