@@ -167,14 +167,16 @@ public class MainActivity extends AppCompatActivity {
                             e.printStackTrace();
                         }
 
+                        startPreview();
+
                         mMediaCodec.stop();
                         mMediaCodec.reset();
+
+                        stopAudioThread();
 
                         //mAudioRecord.stop();
                         //mAudioCodec.stop();
                         //mAudioCodec.reset();
-
-                        startPreview();
                     } else {
                         checkWriteStoragePermission();
                     }
@@ -234,7 +236,7 @@ public class MainActivity extends AppCompatActivity {
     protected void onPause() {
         closeCamera();
 
-        stopAudioThread();
+        //stopAudioThread();
         stopBackgroundThread();
 
         super.onPause();
@@ -550,9 +552,9 @@ public class MainActivity extends AppCompatActivity {
     }
 
     private void stopAudioThread() {
-        mAudioHandlerThread.quitSafely();
         try
         {
+            mAudioHandlerThread.quitSafely();
             mAudioHandlerThread.join();
             mAudioHandlerThread = null;
             mAudioHandler = null;
