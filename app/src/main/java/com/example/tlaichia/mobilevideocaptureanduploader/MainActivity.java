@@ -59,6 +59,8 @@ public class MainActivity extends AppCompatActivity {
     private CaptureRequest.Builder mCaptureRequestBuilder;
     private HandlerThread mBackgroundHandlerThread;
     private Handler mBackgroundHandler;
+    private HandlerThread mAudioHandlerThread;
+    private Handler mAudioHandler;
     private ImageButton mRecordVideoImageButton;
     private boolean mIsRecording;
     private File mVideoFolder;
@@ -69,7 +71,8 @@ public class MainActivity extends AppCompatActivity {
     private byte[] csdData;
     private boolean isFirstFrame;
     private AudioRecord mAudioRecord;
-    private int mAudioMarkerPosition;
+    private int mAudioInputMarkerPosition;
+    private int mAudioOutputMarkerPosition;
     private int mSegmentCount;
 
     private TextureView.SurfaceTextureListener mSurfaceTextureListener = new TextureView.SurfaceTextureListener() {
@@ -153,7 +156,7 @@ public class MainActivity extends AppCompatActivity {
                         mRecordVideoImageButton.setImageResource(R.mipmap.btn_video_record);
 
                         try {// AsyncTask to perform MP4Parser operations
-                            new MP4UploaderTask().execute(new String[] {mVideoFolderName, Integer.toString(mSegmentCount), mVideoFolder.getAbsolutePath()});
+                            new MP4UploaderTask().execute((new String[] {mVideoFolderName, Integer.toString(mSegmentCount), mVideoFolder.getAbsolutePath()}));
 
                             // Close file and create new file
                             mFileOutputStream.close();
@@ -184,7 +187,11 @@ public class MainActivity extends AppCompatActivity {
     protected void onResume() {
         super.onResume();
 
+        // Start background thread
         startBackgroundThread();
+
+        // Start audio thread
+        startAudioThread();
 
         if(mTextureView.isAvailable()) {
             setupCamera(mTextureView.getWidth(), mTextureView.getHeight());
@@ -224,8 +231,7 @@ public class MainActivity extends AppCompatActivity {
     protected void onPause() {
         closeCamera();
 
-        mAudioRecord.release();
-
+        stopAudioThread();
         stopBackgroundThread();
 
         super.onPause();
@@ -316,7 +322,6 @@ public class MainActivity extends AppCompatActivity {
                 public void onConfigured(CameraCaptureSession session) {
                     try {
                         session.setRepeatingRequest(mCaptureRequestBuilder.build(), null, null);
-
                     } catch (CameraAccessException e) {
                         e.printStackTrace();
                     }
@@ -355,10 +360,13 @@ public class MainActivity extends AppCompatActivity {
 
                         if(mFrameCount == NUM_FRAMES_PER_REQUEST) {
                             // AsyncTask to perform MP4Parser operations
-                            new MP4UploaderTask().execute(new String[] {mVideoFolderName, Integer.toString(mSegmentCount), mVideoFolder.getAbsolutePath()});
+                            new MP4UploaderTask().execute((new String[] {mVideoFolderName, Integer.toString(mSegmentCount), mVideoFolder.getAbsolutePath()}));
 
                             // Close file and create new file
                             mFileOutputStream.close();
+
+                            // Increment segmentCount
+                            mSegmentCount++;
 
                             // Create new FileOutputStream
                             File f = createVideoFileName();
@@ -367,13 +375,10 @@ public class MainActivity extends AppCompatActivity {
                             // Write h264 codec-specific data
                             mFileOutputStream.write(csdData);
 
-                            // Increment segmentCount
-                            mSegmentCount++;
-
                             // Reset frameCount
                             mFrameCount = 0;
 
-                            Log.i("MainActivity", "Resetting frame count");
+                            Log.d("MainActivity", "Resetting frame count");
                         }
 
                         // Release buffer
@@ -404,32 +409,59 @@ public class MainActivity extends AppCompatActivity {
                 @Override
                 public void onMarkerReached(AudioRecord recorder) {
                     try {
-                        int z = (mAudioMarkerPosition+1)*(AUDIO_SAMPLE_RATE/30);
-
                         // Reset notification marker
-                        recorder.setNotificationMarkerPosition((mAudioMarkerPosition+1)*(AUDIO_SAMPLE_RATE/30));
+                        recorder.setNotificationMarkerPosition((mAudioInputMarkerPosition+1)*(AUDIO_SAMPLE_RATE/30));
 
-                        byte[] b = new byte[AUDIO_SAMPLE_RATE/30];
-                        recorder.read(b, 0, AUDIO_SAMPLE_RATE/30);
+                        // Get input buffer
+                        int inputBufferId = mAudioCodec.dequeueInputBuffer(-1);
+                        if(inputBufferId >= 0) {
+                            ByteBuffer inputBuffer = mAudioCodec.getInputBuffer(inputBufferId);
+                            // Fill inputBuffer with valid data
+                            recorder.read(inputBuffer, AUDIO_SAMPLE_RATE/30);
+                            mAudioCodec.queueInputBuffer(inputBufferId, 0, AUDIO_SAMPLE_RATE/30, 0, 0);
 
-                        // Write data to file
-                        mAudioFileOutputStream.write(b);
+                            // Increment marker position
+                            mAudioInputMarkerPosition++;
 
-                        // Increment marker position
-                        mAudioMarkerPosition++;
+                            if(mAudioInputMarkerPosition == NUM_FRAMES_PER_REQUEST) {
+                                // Reset marker position
+                                mAudioInputMarkerPosition = 0;
 
-                        if(mAudioMarkerPosition == NUM_FRAMES_PER_REQUEST) {
-                            // Close file and create new file
-                            mAudioFileOutputStream.close();
+                                Log.d("MainActivity", "Resetting audio input marker position");
+                            }
+                        }
 
-                            // Create new filestream
-                            File f = createAudioFileName();
-                            mAudioFileOutputStream = new FileOutputStream(f);
+                        // Get output buffer
+                        MediaCodec.BufferInfo info = new MediaCodec.BufferInfo();
+                        int outputBufferId = mAudioCodec.dequeueOutputBuffer(info, 0);
+                        if(outputBufferId >= 0) {
+                            ByteBuffer outputBuffer = mAudioCodec.getOutputBuffer(outputBufferId);
+                            // outputBuffer is ready to be processed or rendered
+                            byte[] b = new byte[info.size];
+                            outputBuffer.get(b);
 
-                            // Reset marker position
-                            mAudioMarkerPosition = 0;
+                            // Write data to file
+                            mAudioFileOutputStream.write(b);
 
-                            Log.i("MainActivity", "Resetting audio marker position");
+                            // Increment marker position
+                            mAudioOutputMarkerPosition++;
+
+                            if(mAudioOutputMarkerPosition == NUM_FRAMES_PER_REQUEST) {
+                                // Close file and create new file
+                                mAudioFileOutputStream.close();
+
+                                // Create new filestream
+                                File f = createAudioFileName();
+                                mAudioFileOutputStream = new FileOutputStream(f);
+
+                                // Reset marker position
+                                mAudioOutputMarkerPosition = 0;
+
+                                Log.d("MainActivity", "Resetting audio output marker position");
+                            }
+
+                            // Release output buffer
+                            mAudioCodec.releaseOutputBuffer(outputBufferId, false);
                         }
                     } catch (Exception e) {
                         Log.e("MainActivity.java", "Exception occurred in onMarkerReached");
@@ -441,7 +473,7 @@ public class MainActivity extends AppCompatActivity {
                 public void onPeriodicNotification(AudioRecord recorder) {
 
                 }
-            });
+            }, mAudioHandler);
 
             // Start recording
             mAudioRecord.startRecording();
@@ -487,6 +519,7 @@ public class MainActivity extends AppCompatActivity {
     }
 
     private void startBackgroundThread() {
+        Log.d("MainActivity.java", "startBackgroundThread!");
         mBackgroundHandlerThread = new HandlerThread("Camera2VideoImage");
         mBackgroundHandlerThread.start();
         mBackgroundHandler = new Handler(mBackgroundHandlerThread.getLooper());
@@ -498,6 +531,25 @@ public class MainActivity extends AppCompatActivity {
             mBackgroundHandlerThread.join();
             mBackgroundHandlerThread = null;
             mBackgroundHandler = null;
+        } catch (InterruptedException e) {
+            e.printStackTrace();
+        }
+    }
+
+    private void startAudioThread() {
+        Log.d("MainActivity.java", "startAudioThread!");
+        mAudioHandlerThread = new HandlerThread("AudioThread");
+        mAudioHandlerThread.start();
+        mAudioHandler = new Handler(mAudioHandlerThread.getLooper());
+    }
+
+    private void stopAudioThread() {
+        mAudioHandlerThread.quitSafely();
+        try
+        {
+            mAudioHandlerThread.join();
+            mAudioHandlerThread = null;
+            mAudioHandler = null;
         } catch (InterruptedException e) {
             e.printStackTrace();
         }
@@ -538,7 +590,7 @@ public class MainActivity extends AppCompatActivity {
     }
 
     private File createVideoFileName() throws IOException {
-        File videoFile = new File(mVideoFolder + "/" + mSegmentCount + ".h264");
+        File videoFile = new File(mVideoFolder + "/VIDEO_" + mSegmentCount + ".h264");
         return videoFile;
     }
 
@@ -553,7 +605,8 @@ public class MainActivity extends AppCompatActivity {
                 mIsRecording = true;
                 mSegmentCount = 0;
                 mFrameCount = 0;
-                mAudioMarkerPosition = 0;
+                mAudioInputMarkerPosition = 0;
+                mAudioOutputMarkerPosition = 0;
                 isFirstFrame = true;
                 mRecordVideoImageButton.setImageResource(R.mipmap.btn_video_recording);
                 try {
@@ -578,7 +631,8 @@ public class MainActivity extends AppCompatActivity {
             mIsRecording = true;
             mSegmentCount = 0;
             mFrameCount = 0;
-            mAudioMarkerPosition = 0;
+            mAudioInputMarkerPosition = 0;
+            mAudioOutputMarkerPosition = 0;
             isFirstFrame = true;
             mRecordVideoImageButton.setImageResource(R.mipmap.btn_video_recording);
             try {
