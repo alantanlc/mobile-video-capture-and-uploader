@@ -73,7 +73,8 @@ public class MainActivity extends AppCompatActivity {
     private AudioRecord mAudioRecord;
     private int mAudioInputMarkerPosition;
     private int mAudioOutputMarkerPosition;
-    private int mSegmentCount;
+    private int mVideoSegmentCount;
+    private int mAudioSegmentCount;
 
     private TextureView.SurfaceTextureListener mSurfaceTextureListener = new TextureView.SurfaceTextureListener() {
         @Override
@@ -155,22 +156,24 @@ public class MainActivity extends AppCompatActivity {
                         mIsRecording = false;
                         mRecordVideoImageButton.setImageResource(R.mipmap.btn_video_record);
 
-                        try {// AsyncTask to perform MP4Parser operations
-                            new MP4UploaderTask().execute((new String[] {mVideoFolderName, Integer.toString(mSegmentCount), mVideoFolder.getAbsolutePath()}));
-
+                        try {
                             // Close file and create new file
                             mFileOutputStream.close();
-                            mAudioFileOutputStream.close();
+                            //mAudioFileOutputStream.close();
+
+                            // AsyncTask to perform MP4Parser operations
+                            new MP4UploaderTask().execute((new String[] {mVideoFolderName, Integer.toString(mVideoSegmentCount), mVideoFolder.getAbsolutePath()}));
                         } catch (Exception e) {
                             e.printStackTrace();
                         }
 
                         mMediaCodec.stop();
-                        mAudioCodec.stop();
-                        mAudioRecord.stop();
-                        mAudioRecord.release();
                         mMediaCodec.reset();
-                        mAudioCodec.reset();
+
+                        //mAudioRecord.stop();
+                        //mAudioCodec.stop();
+                        //mAudioCodec.reset();
+
                         startPreview();
                     } else {
                         checkWriteStoragePermission();
@@ -359,14 +362,14 @@ public class MainActivity extends AppCompatActivity {
                         }
 
                         if(mFrameCount == NUM_FRAMES_PER_REQUEST) {
-                            // AsyncTask to perform MP4Parser operations
-                            new MP4UploaderTask().execute((new String[] {mVideoFolderName, Integer.toString(mSegmentCount), mVideoFolder.getAbsolutePath()}));
-
                             // Close file and create new file
                             mFileOutputStream.close();
 
+                            // AsyncTask to perform MP4Parser operations
+                            new MP4UploaderTask().execute((new String[] {mVideoFolderName, Integer.toString(mVideoSegmentCount), mVideoFolder.getAbsolutePath()}));
+
                             // Increment segmentCount
-                            mSegmentCount++;
+                            mVideoSegmentCount++;
 
                             // Create new FileOutputStream
                             File f = createVideoFileName();
@@ -433,7 +436,7 @@ public class MainActivity extends AppCompatActivity {
 
                         // Get output buffer
                         MediaCodec.BufferInfo info = new MediaCodec.BufferInfo();
-                        int outputBufferId = mAudioCodec.dequeueOutputBuffer(info, 0);
+                        int outputBufferId = mAudioCodec.dequeueOutputBuffer(info, 10);
                         if(outputBufferId >= 0) {
                             ByteBuffer outputBuffer = mAudioCodec.getOutputBuffer(outputBufferId);
                             // outputBuffer is ready to be processed or rendered
@@ -449,6 +452,9 @@ public class MainActivity extends AppCompatActivity {
                             if(mAudioOutputMarkerPosition == NUM_FRAMES_PER_REQUEST) {
                                 // Close file and create new file
                                 mAudioFileOutputStream.close();
+
+                                // Increment audio segment count
+                                mAudioSegmentCount++;
 
                                 // Create new filestream
                                 File f = createAudioFileName();
@@ -590,12 +596,12 @@ public class MainActivity extends AppCompatActivity {
     }
 
     private File createVideoFileName() throws IOException {
-        File videoFile = new File(mVideoFolder + "/VIDEO_" + mSegmentCount + ".h264");
+        File videoFile = new File(mVideoFolder + "/VIDEO_" + mVideoSegmentCount + ".h264");
         return videoFile;
     }
 
     private File createAudioFileName() throws IOException {
-        File audioFile = new File(mVideoFolder + "/AUDIO_" + mSegmentCount + ".aac");
+        File audioFile = new File(mVideoFolder + "/AUDIO_" + mAudioSegmentCount + ".aac");
         return audioFile;
     }
 
@@ -603,7 +609,8 @@ public class MainActivity extends AppCompatActivity {
         if(Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
             if(ContextCompat.checkSelfPermission(this, Manifest.permission.WRITE_EXTERNAL_STORAGE) == PackageManager.PERMISSION_GRANTED) {
                 mIsRecording = true;
-                mSegmentCount = 0;
+                mVideoSegmentCount = 0;
+                mAudioSegmentCount = 0;
                 mFrameCount = 0;
                 mAudioInputMarkerPosition = 0;
                 mAudioOutputMarkerPosition = 0;
@@ -629,7 +636,8 @@ public class MainActivity extends AppCompatActivity {
             }
         } else {
             mIsRecording = true;
-            mSegmentCount = 0;
+            mVideoSegmentCount = 0;
+            mAudioSegmentCount = 0;
             mFrameCount = 0;
             mAudioInputMarkerPosition = 0;
             mAudioOutputMarkerPosition = 0;
