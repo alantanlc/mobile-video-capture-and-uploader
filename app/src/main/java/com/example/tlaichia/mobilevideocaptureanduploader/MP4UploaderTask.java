@@ -58,7 +58,7 @@ public class MP4UploaderTask extends AsyncTask<String, Void, Void> {
 
             // Upload to server using POST method
             HttpClient client = new DefaultHttpClient();
-            HttpPost post = new HttpPost("http://monterosa.d1.comp.nus.edu.sg/~team10/server/upload_multiple.php");
+            HttpPost post = new HttpPost("http://monterosa.d2.comp.nus.edu.sg/~team10/server/upload_multiple.php");
 
             // MultipartEntityBuilder
             MultipartEntityBuilder builder = MultipartEntityBuilder.create();
