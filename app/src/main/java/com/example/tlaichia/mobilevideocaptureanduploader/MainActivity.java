@@ -62,19 +62,20 @@ public class MainActivity extends AppCompatActivity {
     private HandlerThread mAudioHandlerThread;
     private Handler mAudioHandler;
     private ImageButton mRecordVideoImageButton;
-    private boolean mIsRecording;
+    public boolean mIsRecording;
     private File mVideoFolder;
     private String mVideoFolderName;
     private int mFrameCount;
     private FileOutputStream mFileOutputStream;
-    private FileOutputStream mAudioFileOutputStream;
+    public FileOutputStream mAudioFileOutputStream;
     private byte[] csdData;
     private boolean isFirstFrame;
-    private AudioRecord mAudioRecord;
+    public AudioRecord mAudioRecord;
     private int mAudioInputMarkerPosition;
     private int mAudioOutputMarkerPosition;
     private int mVideoSegmentCount;
     private int mAudioSegmentCount;
+    private AudioOutputThread mAudioOutputThread;
 
     private TextureView.SurfaceTextureListener mSurfaceTextureListener = new TextureView.SurfaceTextureListener() {
         @Override
@@ -153,13 +154,12 @@ public class MainActivity extends AppCompatActivity {
                 @Override
                 public void onClick(View v) {
                     if(mIsRecording) {
-                        mIsRecording = false;
                         mRecordVideoImageButton.setImageResource(R.mipmap.btn_video_record);
 
                         try {
                             // Close file and create new file
                             mFileOutputStream.close();
-                            //mAudioFileOutputStream.close();
+                            mAudioFileOutputStream.close();
 
                             // AsyncTask to perform MP4Parser operations
                             new MP4UploaderTask().execute((new String[] {mVideoFolderName, Integer.toString(mVideoSegmentCount), mVideoFolder.getAbsolutePath()}));
@@ -167,16 +167,18 @@ public class MainActivity extends AppCompatActivity {
                             e.printStackTrace();
                         }
 
-                        startPreview();
-
                         mMediaCodec.stop();
                         mMediaCodec.reset();
 
-                        stopAudioThread();
+                        //stopAudioThread();
 
-                        //mAudioRecord.stop();
+                        mIsRecording = false;
+
+                        mAudioRecord.stop();
                         //mAudioCodec.stop();
                         //mAudioCodec.reset();
+
+                        startPreview();
                     } else {
                         checkWriteStoragePermission();
                     }
@@ -312,20 +314,25 @@ public class MainActivity extends AppCompatActivity {
             setupMediaCodec();
             setupAudioCodec();
 
+            // Video Codec
             SurfaceTexture surfaceTexture = mTextureView.getSurfaceTexture();
             surfaceTexture.setDefaultBufferSize(mPreviewSize.getWidth(), mPreviewSize.getHeight());
             Surface previewSurface = new Surface(surfaceTexture);
-
             Surface recordSurface = mMediaCodec.createInputSurface();
-
             mCaptureRequestBuilder = mCameraDevice.createCaptureRequest(CameraDevice.TEMPLATE_RECORD);
             mCaptureRequestBuilder.addTarget(previewSurface);
             mCaptureRequestBuilder.addTarget(recordSurface);
-
             mCameraDevice.createCaptureSession(Arrays.asList(previewSurface, recordSurface), new CameraCaptureSession.StateCallback() {
                 @Override
                 public void onConfigured(CameraCaptureSession session) {
                     try {
+                        mAudioOutputThread = new AudioOutputThread();
+                        mAudioOutputThread.start();
+                        // Audio
+                        for(int i = 0; i < NUM_FRAMES_PER_REQUEST; ++i) {
+                            mAudioRecord.setNotificationMarkerPosition((i+1)*(AUDIO_SAMPLE_RATE/30));
+                        }
+                        mAudioRecord.startRecording();
                         session.setRepeatingRequest(mCaptureRequestBuilder.build(), null, null);
                     } catch (CameraAccessException e) {
                         e.printStackTrace();
@@ -338,6 +345,49 @@ public class MainActivity extends AppCompatActivity {
                 }
             }, null);
 
+            // Audio Codec
+            mAudioRecord.setRecordPositionUpdateListener(new AudioRecord.OnRecordPositionUpdateListener() {
+                @Override
+                public void onMarkerReached(AudioRecord recorder) {
+                    try {
+                        if(!mIsRecording) {
+                            Log.d("MainActivity.java", "onMarkerReach mIsRecording false");
+                            return;
+                        }
+
+                        // Reset notification marker
+                        recorder.setNotificationMarkerPosition((mAudioInputMarkerPosition+1)*(AUDIO_SAMPLE_RATE/30));
+
+                        // Get input buffer
+                        int inputBufferId = mAudioCodec.dequeueInputBuffer(-1);
+                        if(inputBufferId >= 0) {
+                            ByteBuffer inputBuffer = mAudioCodec.getInputBuffer(inputBufferId);
+                            // Fill inputBuffer with valid data
+                            recorder.read(inputBuffer, AUDIO_SAMPLE_RATE/30);
+                            mAudioCodec.queueInputBuffer(inputBufferId, 0, AUDIO_SAMPLE_RATE/30, 0, 0);
+
+                            // Increment marker position
+                            mAudioInputMarkerPosition++;
+
+                            if(mAudioInputMarkerPosition == NUM_FRAMES_PER_REQUEST) {
+                                // Reset marker position
+                                mAudioInputMarkerPosition = 0;
+
+                                Log.d("MainActivity", "Resetting audio input marker position");
+                            }
+                        }
+                    } catch (Exception e) {
+                        Log.e("MainActivity.java", "Exception occurred in onMarkerReached");
+                        e.printStackTrace();
+                    }
+                }
+
+                @Override
+                public void onPeriodicNotification(AudioRecord recorder) {
+
+                }
+            }, mAudioHandler);
+
             // Video codec
             mMediaCodec.setCallback(new MediaCodec.Callback() {
                 @Override
@@ -348,6 +398,11 @@ public class MainActivity extends AppCompatActivity {
                 @Override
                 public void onOutputBufferAvailable(MediaCodec codec, int index, MediaCodec.BufferInfo info) {
                     try {
+                        if(!mIsRecording) {
+                            Log.d("MainActivity.java", "mMediaCodec onOutputBufferAvailable mIsRecording false");
+                            return;
+                        }
+
                         // Get ByteBuffer
                         ByteBuffer outputBuffer = codec.getOutputBuffer(index);
                         byte[] b = new byte[info.size];
@@ -404,87 +459,6 @@ public class MainActivity extends AppCompatActivity {
                     mMediaFormat = format;
                 }
             });
-
-            // Audio
-            for(int i = 0; i < NUM_FRAMES_PER_REQUEST; ++i) {
-                mAudioRecord.setNotificationMarkerPosition((i+1)*(AUDIO_SAMPLE_RATE/30));
-            }
-
-            mAudioRecord.setRecordPositionUpdateListener(new AudioRecord.OnRecordPositionUpdateListener() {
-                @Override
-                public void onMarkerReached(AudioRecord recorder) {
-                    try {
-                        // Reset notification marker
-                        recorder.setNotificationMarkerPosition((mAudioInputMarkerPosition+1)*(AUDIO_SAMPLE_RATE/30));
-
-                        // Get input buffer
-                        int inputBufferId = mAudioCodec.dequeueInputBuffer(-1);
-                        if(inputBufferId >= 0) {
-                            ByteBuffer inputBuffer = mAudioCodec.getInputBuffer(inputBufferId);
-                            // Fill inputBuffer with valid data
-                            recorder.read(inputBuffer, AUDIO_SAMPLE_RATE/30);
-                            mAudioCodec.queueInputBuffer(inputBufferId, 0, AUDIO_SAMPLE_RATE/30, 0, 0);
-
-                            // Increment marker position
-                            mAudioInputMarkerPosition++;
-
-                            if(mAudioInputMarkerPosition == NUM_FRAMES_PER_REQUEST) {
-                                // Reset marker position
-                                mAudioInputMarkerPosition = 0;
-
-                                Log.d("MainActivity", "Resetting audio input marker position");
-                            }
-                        }
-
-                        // Get output buffer
-                        MediaCodec.BufferInfo info = new MediaCodec.BufferInfo();
-                        int outputBufferId = mAudioCodec.dequeueOutputBuffer(info, 10);
-                        if(outputBufferId >= 0) {
-                            ByteBuffer outputBuffer = mAudioCodec.getOutputBuffer(outputBufferId);
-                            // outputBuffer is ready to be processed or rendered
-                            byte[] b = new byte[info.size];
-                            outputBuffer.get(b);
-
-                            // Write data to file
-                            mAudioFileOutputStream.write(b);
-
-                            // Increment marker position
-                            mAudioOutputMarkerPosition++;
-
-                            if(mAudioOutputMarkerPosition == NUM_FRAMES_PER_REQUEST) {
-                                // Close file and create new file
-                                mAudioFileOutputStream.close();
-
-                                // Increment audio segment count
-                                mAudioSegmentCount++;
-
-                                // Create new filestream
-                                File f = createAudioFileName();
-                                mAudioFileOutputStream = new FileOutputStream(f);
-
-                                // Reset marker position
-                                mAudioOutputMarkerPosition = 0;
-
-                                Log.d("MainActivity", "Resetting audio output marker position");
-                            }
-
-                            // Release output buffer
-                            mAudioCodec.releaseOutputBuffer(outputBufferId, false);
-                        }
-                    } catch (Exception e) {
-                        Log.e("MainActivity.java", "Exception occurred in onMarkerReached");
-                        e.printStackTrace();
-                    }
-                }
-
-                @Override
-                public void onPeriodicNotification(AudioRecord recorder) {
-
-                }
-            }, mAudioHandler);
-
-            // Start recording
-            mAudioRecord.startRecording();
         } catch (Exception e) {
             e.printStackTrace();
         }
@@ -552,8 +526,7 @@ public class MainActivity extends AppCompatActivity {
     }
 
     private void stopAudioThread() {
-        try
-        {
+        try {
             mAudioHandlerThread.quitSafely();
             mAudioHandlerThread.join();
             mAudioHandlerThread = null;
@@ -628,8 +601,8 @@ public class MainActivity extends AppCompatActivity {
                     e.printStackTrace();
                 }
                 startRecord();
-                mMediaCodec.start();
                 mAudioCodec.start();
+                mMediaCodec.start();
             } else {
                 if(shouldShowRequestPermissionRationale(Manifest.permission.WRITE_EXTERNAL_STORAGE)) {
                     Toast.makeText(this, "App needs to be able to save videos", Toast.LENGTH_SHORT).show();
@@ -655,8 +628,57 @@ public class MainActivity extends AppCompatActivity {
                 e.printStackTrace();
             }
             startRecord();
-            mMediaCodec.start();
             mAudioCodec.start();
+            mMediaCodec.start();
+        }
+    }
+
+    class AudioOutputThread extends Thread {
+        public void run() {
+            while(true) {
+                try {
+                    // Get output buffer
+                    MediaCodec.BufferInfo info = new MediaCodec.BufferInfo();
+                    int outputBufferId = mAudioCodec.dequeueOutputBuffer(info, 0);
+                    if (outputBufferId >= 0) {
+                        Log.d("MainActivity.java", "AudioOutputThread outputBuffer dequeued!");
+
+                        ByteBuffer outputBuffer = mAudioCodec.getOutputBuffer(outputBufferId);
+                        // outputBuffer is ready to be processed or rendered
+                        byte[] b = new byte[info.size];
+                        outputBuffer.get(b);
+
+                        // Write data to file
+                        mAudioFileOutputStream.write(b);
+
+                        // Increment marker position
+                        mAudioOutputMarkerPosition++;
+
+                        if (mAudioOutputMarkerPosition == NUM_FRAMES_PER_REQUEST) {
+                            // Close file and create new file
+                            mAudioFileOutputStream.close();
+
+                            // Increment audio segment count
+                            mAudioSegmentCount++;
+
+                            // Create new filestream
+                            File f = createAudioFileName();
+                            mAudioFileOutputStream = new FileOutputStream(f);
+
+                            // Reset marker position
+                            mAudioOutputMarkerPosition = 0;
+
+                            Log.d("MainActivity", "Resetting audio output marker position");
+                        }
+
+                        // Release output buffer
+                        mAudioCodec.releaseOutputBuffer(outputBufferId, false);
+                    }
+                } catch (Exception e) {
+                    Log.e("MainActivity", "AudioOutputThread exception");
+                    e.printStackTrace();
+                }
+            }
         }
     }
 }
