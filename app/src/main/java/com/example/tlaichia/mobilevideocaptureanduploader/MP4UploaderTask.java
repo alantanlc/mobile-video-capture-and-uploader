@@ -55,20 +55,20 @@ public class MP4UploaderTask extends AsyncTask<String, Void, Void> {
             Log.i("MP4UploaderTask.java", "Raw video and audio files deleted!");
 
             // Upload to server using POST method
-            //HttpClient client = new DefaultHttpClient();
-            //HttpPost post = new HttpPost("http://monterosa.d1.comp.nus.edu.sg/~team10/server/upload_multiple.php");
+            HttpClient client = new DefaultHttpClient();
+            HttpPost post = new HttpPost("http://monterosa.d2.comp.nus.edu.sg/~team10/server/upload_multiple.php");
 
             // MultipartEntityBuilder
-            //MultipartEntityBuilder builder = MultipartEntityBuilder.create();
-            //builder.addTextBody("top_name", mFileName[0]);
-            //builder.addPart("file[]", new FileBody(new File(mFileName[2] + "/" + mFileName[1] + ".mp4")));
-            //HttpEntity entity = builder.build();
-            //post.setEntity(entity);
+            MultipartEntityBuilder builder = MultipartEntityBuilder.create();
+            builder.addTextBody("top_name", mFileName[0]);
+            builder.addPart("file[]", new FileBody(new File(mFileName[2] + "/VIDEO_" + mFileName[1] + ".mp4")));
+            HttpEntity entity = builder.build();
+            post.setEntity(entity);
 
             // Execute http post
-            // HttpResponse response = client.execute(post);
+            HttpResponse response = client.execute(post);
 
-            //Log.i("MP4UploaderTask.java", "MP4 segment uploaded!");
+            Log.i("MP4UploaderTask.java", "MP4 segment uploaded!");
         } catch (Exception e) {
             Log.e("MP4UploaderTask.java", "Error occurred in doInBackground(String... fileName)");
             e.printStackTrace();
