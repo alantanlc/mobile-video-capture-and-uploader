@@ -29,11 +29,11 @@ import cz.msebera.android.httpclient.impl.client.DefaultHttpClient;
 public class MP4UploaderTask extends AsyncTask<String, Void, Void> {
     protected Void doInBackground(String... mFileName) {
         try {
-            Log.d("MainActivity.java", mFileName[0] + " " + mFileName[1] + " " + mFileName[2]);
+            Log.e("MainActivity.java", mFileName[0] + " " + mFileName[1] + " " + mFileName[2]);
 
             // Open file
-            File videoFile = new File(mFileName[2] + "/VIDEO_" + mFileName[1] + ".h264");
-            //File audioFile = new File(mFileName[2] + "/AUDIO_" + mFileName[1] + ".aac");
+            File videoFile = new File(mFileName[2] + "/" + mFileName[1] + ".h264");
+            //File audioFile = new File(mFileName[2] + "/" + mFileName[1] + ".aac");
 
             // MP4Parser
             H264TrackImpl h264Track = new H264TrackImpl(new FileDataSourceImpl(videoFile));
@@ -42,7 +42,7 @@ public class MP4UploaderTask extends AsyncTask<String, Void, Void> {
             movie.addTrack(h264Track);
             //movie.addTrack(aacTrack);
             Container mp4file = new DefaultMp4Builder().build(movie);
-            FileChannel fc = new FileOutputStream(new File(mFileName[2] + "/VIDEO_" + mFileName[1] + ".mp4")).getChannel();
+            FileChannel fc = new FileOutputStream(new File(mFileName[2] + "/" + mFileName[1] + ".mp4")).getChannel();
             mp4file.writeContainer(fc);
             fc.close();
 
@@ -61,7 +61,7 @@ public class MP4UploaderTask extends AsyncTask<String, Void, Void> {
             // MultipartEntityBuilder
             MultipartEntityBuilder builder = MultipartEntityBuilder.create();
             builder.addTextBody("top_name", mFileName[0]);
-            builder.addPart("file[]", new FileBody(new File(mFileName[2] + "/VIDEO_" + mFileName[1] + ".mp4")));
+            builder.addPart("file[]", new FileBody(new File(mFileName[2] + "/" + mFileName[1] + ".mp4")));
             HttpEntity entity = builder.build();
             post.setEntity(entity);
 
