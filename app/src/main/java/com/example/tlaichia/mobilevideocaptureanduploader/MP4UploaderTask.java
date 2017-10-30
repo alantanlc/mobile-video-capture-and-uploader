@@ -83,7 +83,6 @@ public class MP4UploaderTask extends AsyncTask<String, Void, Void> {
     private File encodeAudio(String folderName, String fileName) {
         try {
             // Create new .AAC file and open PCM file
-            File aacFile = new File(folderName + "/" + fileName + ".aac");
             File pcmFile = new File(folderName + "/" + fileName + ".pcm");
 
             // Create media codec
@@ -94,6 +93,7 @@ public class MP4UploaderTask extends AsyncTask<String, Void, Void> {
             // Get inputBuffer
             int inputBufferId = codec.dequeueInputBuffer(-1);
             while(inputBufferId < 0) {
+                Log.d("MP4UploaderTask", "Audio codec inputBuffer dequeued!");
                 inputBufferId = codec.dequeueInputBuffer(-1);
             }
 
@@ -103,23 +103,33 @@ public class MP4UploaderTask extends AsyncTask<String, Void, Void> {
             codec.queueInputBuffer(inputBufferId, ...);
 
             // Get outputBuffer
-            int outputBufferId = codec.dequeueOutputBuffer(...);
+            MediaCodec.BufferInfo info = new MediaCodec.BufferInfo();
+            int outputBufferId = codec.dequeueOutputBuffer(info, 0);
             if(outputBufferId >= 0) {
-                outputBufferId = codec.dequeueOutputBuffer(...)
+                Log.d("MP4UploaderTask", "Audio codec outputBuffer dequeued!");
+                outputBufferId = codec.dequeueOutputBuffer(info, 0);
             }
 
             // Process outputBuffer
             ByteBuffer outputBuffer = codec.getOutputBuffer(outputBufferId);
-            // outputBuffer is ready to be processed
-            // ...
+            byte[] b = new byte[info.size];
+            outputBuffer.get(b);
+
+            // Write data to file
+            File aacFile = new File(folderName + "/" + fileName + ".aac");
+            FileOutputStream f = new FileOutputStream(aacFile);
+            f.write(b);
+            f.close();
+
+            // Release output buffer
             codec.releaseOutputBuffer(outputBufferId, false);
 
+            // Close codec
             codec.stop();
             codec.release();
 
             // Return file
-            // ...
-
+            return aacFile;
         } catch(Exception e) {
             e.printStackTrace();
         }
