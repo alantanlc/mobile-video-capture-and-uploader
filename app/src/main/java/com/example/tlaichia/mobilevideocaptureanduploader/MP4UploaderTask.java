@@ -1,6 +1,8 @@
 package com.example.tlaichia.mobilevideocaptureanduploader;
 
 import android.media.MediaCodec;
+import android.media.MediaCodecInfo;
+import android.media.MediaFormat;
 import android.os.AsyncTask;
 import android.util.Log;
 
@@ -37,8 +39,12 @@ public class MP4UploaderTask extends AsyncTask<String, Void, Void> {
 
             // Open file
             File videoFile = new File(mFileName[2] + "/" + mFileName[1] + ".h264");
-            File audioFile = encodeAudio(mFileName[2], mFileName[1]);
-            // File audioFile = new File("/storage/emulated/0/Movies/aac-sample.aac");
+
+            // Encode audio
+            if(!encodeAudio(mFileName[2], mFileName[1])) {
+                return null;
+            }
+            File audioFile = new File(mFileName[2] + "/" + mFileName[1] + ".aac");
 
             // MP4Parser
             H264TrackImpl h264Track = new H264TrackImpl(new FileDataSourceImpl(videoFile));
@@ -82,11 +88,15 @@ public class MP4UploaderTask extends AsyncTask<String, Void, Void> {
         return null;
     }
 
-    private File encodeAudio(String folderName, String fileName) {
+    private boolean encodeAudio(String folderName, String fileName) {
         try {
             // Create media codec
             MediaCodec codec = MediaCodec.createEncoderByType("audio/mp4a-latm");
-            // codec.configure();
+            MediaFormat format = MediaFormat.createAudioFormat("audio/mp4a-latm", 44100, 1);
+            format.setInteger(MediaFormat.KEY_AAC_PROFILE, MediaCodecInfo.CodecProfileLevel.AACObjectLC);
+            format.setInteger(MediaFormat.KEY_BIT_RATE, 64000);
+            format.setInteger(MediaFormat.KEY_MAX_INPUT_SIZE, 44100*3);
+            codec.configure(format, null, null, MediaCodec.CONFIGURE_FLAG_ENCODE);
             codec.start();
 
             // Get inputBuffer
@@ -113,7 +123,7 @@ public class MP4UploaderTask extends AsyncTask<String, Void, Void> {
             // Get outputBuffer
             MediaCodec.BufferInfo info = new MediaCodec.BufferInfo();
             int outputBufferId = codec.dequeueOutputBuffer(info, 0);
-            if(outputBufferId >= 0) {
+            while(outputBufferId < 0) {
                 Log.d("MP4UploaderTask", "Audio codec outputBuffer dequeued!");
                 outputBufferId = codec.dequeueOutputBuffer(info, 0);
             }
@@ -139,12 +149,10 @@ public class MP4UploaderTask extends AsyncTask<String, Void, Void> {
             // Delete pcm
             pcmFile.delete();
 
-            // Return file
-            return aacFile;
+            return true;
         } catch(Exception e) {
             e.printStackTrace();
+            return false;
         }
-
-        return null;
     }
 }
