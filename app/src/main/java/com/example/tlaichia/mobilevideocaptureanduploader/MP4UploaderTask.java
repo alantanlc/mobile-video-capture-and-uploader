@@ -11,7 +11,9 @@ import com.googlecode.mp4parser.authoring.builder.DefaultMp4Builder;
 import com.googlecode.mp4parser.authoring.tracks.AACTrackImpl;
 import com.googlecode.mp4parser.authoring.tracks.h264.H264TrackImpl;
 
+import java.io.BufferedInputStream;
 import java.io.File;
+import java.io.FileInputStream;
 import java.io.FileOutputStream;
 import java.nio.ByteBuffer;
 import java.nio.channels.FileChannel;
@@ -82,9 +84,6 @@ public class MP4UploaderTask extends AsyncTask<String, Void, Void> {
 
     private File encodeAudio(String folderName, String fileName) {
         try {
-            // Create new .AAC file and open PCM file
-            File pcmFile = new File(folderName + "/" + fileName + ".pcm");
-
             // Create media codec
             MediaCodec codec = MediaCodec.createEncoderByType("audio/mp4a-latm");
             // codec.configure();
@@ -97,10 +96,19 @@ public class MP4UploaderTask extends AsyncTask<String, Void, Void> {
                 inputBufferId = codec.dequeueInputBuffer(-1);
             }
 
+            // Read bytes from pcm
+            File pcmFile = new File(folderName + "/" + fileName + ".pcm");
+            int size = (int) pcmFile.length();
+            byte[] inputBytes = new byte[size];
+            BufferedInputStream buf = new BufferedInputStream(new FileInputStream(pcmFile));
+            buf.read(inputBytes, 0, inputBytes.length);
+            buf.close();
+
             // Process inputBuffer
-            ByteBuffer inputBuffer = codec .getInputBuffer(...);
-            // fill inputBuffer with valid data
-            codec.queueInputBuffer(inputBufferId, ...);
+            ByteBuffer inputBuffer = codec.getInputBuffer(inputBufferId);
+            // Fill inputBuffer with valid data
+            inputBuffer.put(inputBytes);
+            codec.queueInputBuffer(inputBufferId, 0, size, 0, 0);
 
             // Get outputBuffer
             MediaCodec.BufferInfo info = new MediaCodec.BufferInfo();
@@ -112,13 +120,13 @@ public class MP4UploaderTask extends AsyncTask<String, Void, Void> {
 
             // Process outputBuffer
             ByteBuffer outputBuffer = codec.getOutputBuffer(outputBufferId);
-            byte[] b = new byte[info.size];
-            outputBuffer.get(b);
+            byte[] outputBytes = new byte[info.size];
+            outputBuffer.get(outputBytes);
 
             // Write data to file
             File aacFile = new File(folderName + "/" + fileName + ".aac");
             FileOutputStream f = new FileOutputStream(aacFile);
-            f.write(b);
+            f.write(outputBytes);
             f.close();
 
             // Release output buffer
@@ -127,6 +135,9 @@ public class MP4UploaderTask extends AsyncTask<String, Void, Void> {
             // Close codec
             codec.stop();
             codec.release();
+
+            // Delete pcm
+            pcmFile.delete();
 
             // Return file
             return aacFile;
