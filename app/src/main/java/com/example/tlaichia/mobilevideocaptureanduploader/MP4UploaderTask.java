@@ -1,5 +1,6 @@
 package com.example.tlaichia.mobilevideocaptureanduploader;
 
+import android.media.MediaCodec;
 import android.os.AsyncTask;
 import android.util.Log;
 
@@ -33,20 +34,24 @@ public class MP4UploaderTask extends AsyncTask<String, Void, Void> {
 
             // Open file
             File videoFile = new File(mFileName[2] + "/" + mFileName[1] + ".h264");
-            //File audioFile = new File(mFileName[2] + "/" + mFileName[1] + ".aac");
+            // File audioFile = new File(mFileName[2] + "/" + mFileName[1] + ".pcm");
+            File audioFile = new File("/storage/emulated/0/Movies/aac-sample.aac");
+
+            // Encode audio
+            // MediaCodec mAudioCodec = MediaCodec.createEncoderByType("audio/mp4a-latm");
 
             // MP4Parser
             H264TrackImpl h264Track = new H264TrackImpl(new FileDataSourceImpl(videoFile));
-            //AACTrackImpl aacTrack = new AACTrackImpl(new FileDataSourceImpl(audioFile));
+            AACTrackImpl aacTrack = new AACTrackImpl(new FileDataSourceImpl(audioFile));
             Movie movie = new Movie();
             movie.addTrack(h264Track);
-            //movie.addTrack(aacTrack);
+            movie.addTrack(aacTrack);
             Container mp4file = new DefaultMp4Builder().build(movie);
             FileChannel fc = new FileOutputStream(new File(mFileName[2] + "/" + mFileName[1] + ".mp4")).getChannel();
             mp4file.writeContainer(fc);
             fc.close();
 
-            Log.i("MP4UploaderTask.java", "MP4 file generated!");
+            Log.e("MP4UploaderTask.java", "MP4 file generated!");
 
             // Delete raw video and audio file
             videoFile.delete();

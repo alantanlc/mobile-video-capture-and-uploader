@@ -157,6 +157,9 @@ public class MainActivity extends AppCompatActivity {
                             mFileOutputStream.close();
                             mAudioFileOutputStream.close();
 
+                            // Encode audio
+                            // ...
+
                             // AsyncTask to perform MP4Parser operations
                             new MP4UploaderTask().execute((new String[] {mVideoFolderName, Integer.toString(mVideoSegmentCount-1), mVideoFolder.getAbsolutePath()}));
                         } catch (Exception e) {
@@ -347,6 +350,9 @@ public class MainActivity extends AppCompatActivity {
                             // Close file and create new file
                             mAudioFileOutputStream.close();
 
+                            // AsyncTask to perform MP4Parser operations
+                            new MP4UploaderTask().execute((new String[] {mVideoFolderName, Integer.toString(mAudioSegmentCount-1), mVideoFolder.getAbsolutePath()}));
+
                             // Create new FileOutputStream
                             mAudioFileOutputStream = new FileOutputStream(createAudioFileName());
 
@@ -395,9 +401,6 @@ public class MainActivity extends AppCompatActivity {
                         if(mFrameCount == NUM_FRAMES_PER_REQUEST) {
                             // Close file and create new file
                             mFileOutputStream.close();
-
-                            // AsyncTask to perform MP4Parser operations
-                            new MP4UploaderTask().execute((new String[] {mVideoFolderName, Integer.toString(mVideoSegmentCount-1), mVideoFolder.getAbsolutePath()}));
 
                             // Create new FileOutputStream
                             File f = createVideoFileName();
