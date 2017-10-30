@@ -156,17 +156,6 @@ public class MainActivity extends AppCompatActivity {
                     if(mIsRecording) {
                         mRecordVideoImageButton.setImageResource(R.mipmap.btn_video_record);
 
-                        try {
-                            // Close file and create new file
-                            mFileOutputStream.close();
-                            mAudioFileOutputStream.close();
-
-                            // AsyncTask to perform MP4Parser operations
-                            new MP4UploaderTask().execute((new String[] {mVideoFolderName, Integer.toString(mVideoSegmentCount), mVideoFolder.getAbsolutePath()}));
-                        } catch (Exception e) {
-                            e.printStackTrace();
-                        }
-
                         mMediaCodec.stop();
                         mMediaCodec.reset();
 
@@ -177,6 +166,17 @@ public class MainActivity extends AppCompatActivity {
                         mAudioRecord.stop();
                         //mAudioCodec.stop();
                         //mAudioCodec.reset();
+
+                        try {
+                            // Close file and create new file
+                            mFileOutputStream.close();
+                            mAudioFileOutputStream.close();
+
+                            // AsyncTask to perform MP4Parser operations
+                            new MP4UploaderTask().execute((new String[] {mVideoFolderName, Integer.toString(mVideoSegmentCount), mVideoFolder.getAbsolutePath()}));
+                        } catch (Exception e) {
+                            e.printStackTrace();
+                        }
 
                         startPreview();
                     } else {
@@ -330,9 +330,8 @@ public class MainActivity extends AppCompatActivity {
                         mAudioOutputThread.start();
                         // Audio
                         for(int i = 0; i < NUM_FRAMES_PER_REQUEST; ++i) {
-                            mAudioRecord.setNotificationMarkerPosition((i+1)*(AUDIO_SAMPLE_RATE/30));
+                            mAudioRecord.setNotificationMarkerPosition((i+1)*(AUDIO_SAMPLE_RATE/30)-1);
                         }
-                        mAudioRecord.startRecording();
                         session.setRepeatingRequest(mCaptureRequestBuilder.build(), null, null);
                     } catch (CameraAccessException e) {
                         e.printStackTrace();
@@ -350,14 +349,6 @@ public class MainActivity extends AppCompatActivity {
                 @Override
                 public void onMarkerReached(AudioRecord recorder) {
                     try {
-                        if(!mIsRecording) {
-                            Log.d("MainActivity.java", "onMarkerReach mIsRecording false");
-                            return;
-                        }
-
-                        // Reset notification marker
-                        recorder.setNotificationMarkerPosition((mAudioInputMarkerPosition+1)*(AUDIO_SAMPLE_RATE/30));
-
                         // Get input buffer
                         int inputBufferId = mAudioCodec.dequeueInputBuffer(-1);
                         if(inputBufferId >= 0) {
@@ -375,6 +366,11 @@ public class MainActivity extends AppCompatActivity {
 
                                 Log.d("MainActivity", "Resetting audio input marker position");
                             }
+                        }
+
+                        if(mIsRecording) {
+                            // Reset notification marker
+                            recorder.setNotificationMarkerPosition((mAudioInputMarkerPosition+1)*(AUDIO_SAMPLE_RATE/30)-1);
                         }
                     } catch (Exception e) {
                         Log.e("MainActivity.java", "Exception occurred in onMarkerReached");
@@ -398,11 +394,6 @@ public class MainActivity extends AppCompatActivity {
                 @Override
                 public void onOutputBufferAvailable(MediaCodec codec, int index, MediaCodec.BufferInfo info) {
                     try {
-                        if(!mIsRecording) {
-                            Log.d("MainActivity.java", "mMediaCodec onOutputBufferAvailable mIsRecording false");
-                            return;
-                        }
-
                         // Get ByteBuffer
                         ByteBuffer outputBuffer = codec.getOutputBuffer(index);
                         byte[] b = new byte[info.size];
@@ -602,6 +593,7 @@ public class MainActivity extends AppCompatActivity {
                 }
                 startRecord();
                 mAudioCodec.start();
+                mAudioRecord.startRecording();
                 mMediaCodec.start();
             } else {
                 if(shouldShowRequestPermissionRationale(Manifest.permission.WRITE_EXTERNAL_STORAGE)) {
@@ -629,12 +621,14 @@ public class MainActivity extends AppCompatActivity {
             }
             startRecord();
             mAudioCodec.start();
+            mAudioRecord.startRecording();
             mMediaCodec.start();
         }
     }
 
     class AudioOutputThread extends Thread {
         public void run() {
+            Log.d("MainActivity.java", "AudioOutputThread started!");
             while(true) {
                 try {
                     // Get output buffer

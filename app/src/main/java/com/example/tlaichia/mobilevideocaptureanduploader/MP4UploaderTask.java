@@ -66,7 +66,7 @@ public class MP4UploaderTask extends AsyncTask<String, Void, Void> {
             post.setEntity(entity);
 
             // Execute http post
-            HttpResponse response = client.execute(post);
+            // HttpResponse response = client.execute(post);
 
             Log.i("MP4UploaderTask.java", "MP4 segment uploaded!");
         } catch (Exception e) {
