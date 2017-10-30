@@ -157,9 +157,6 @@ public class MainActivity extends AppCompatActivity {
                             mFileOutputStream.close();
                             mAudioFileOutputStream.close();
 
-                            // Encode audio
-                            // ...
-
                             // AsyncTask to perform MP4Parser operations
                             new MP4UploaderTask().execute((new String[] {mVideoFolderName, Integer.toString(mVideoSegmentCount-1), mVideoFolder.getAbsolutePath()}));
                         } catch (Exception e) {

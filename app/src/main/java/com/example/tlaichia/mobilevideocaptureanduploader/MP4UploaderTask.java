@@ -13,6 +13,7 @@ import com.googlecode.mp4parser.authoring.tracks.h264.H264TrackImpl;
 
 import java.io.File;
 import java.io.FileOutputStream;
+import java.nio.ByteBuffer;
 import java.nio.channels.FileChannel;
 import cz.msebera.android.httpclient.HttpEntity;
 import cz.msebera.android.httpclient.HttpResponse;
@@ -34,11 +35,8 @@ public class MP4UploaderTask extends AsyncTask<String, Void, Void> {
 
             // Open file
             File videoFile = new File(mFileName[2] + "/" + mFileName[1] + ".h264");
-            // File audioFile = new File(mFileName[2] + "/" + mFileName[1] + ".pcm");
-            File audioFile = new File("/storage/emulated/0/Movies/aac-sample.aac");
-
-            // Encode audio
-            // MediaCodec mAudioCodec = MediaCodec.createEncoderByType("audio/mp4a-latm");
+            File audioFile = encodeAudio(mFileName[2], mFileName[1]);
+            // File audioFile = new File("/storage/emulated/0/Movies/aac-sample.aac");
 
             // MP4Parser
             H264TrackImpl h264Track = new H264TrackImpl(new FileDataSourceImpl(videoFile));
@@ -55,7 +53,7 @@ public class MP4UploaderTask extends AsyncTask<String, Void, Void> {
 
             // Delete raw video and audio file
             videoFile.delete();
-            //audioFile.delete();
+            // audioFile.delete();
 
             Log.i("MP4UploaderTask.java", "Raw video and audio files deleted!");
 
@@ -76,6 +74,53 @@ public class MP4UploaderTask extends AsyncTask<String, Void, Void> {
             Log.i("MP4UploaderTask.java", "MP4 segment uploaded!");
         } catch (Exception e) {
             Log.e("MP4UploaderTask.java", "Error occurred in doInBackground(String... fileName)");
+            e.printStackTrace();
+        }
+
+        return null;
+    }
+
+    private File encodeAudio(String folderName, String fileName) {
+        try {
+            // Create new .AAC file and open PCM file
+            File aacFile = new File(folderName + "/" + fileName + ".aac");
+            File pcmFile = new File(folderName + "/" + fileName + ".pcm");
+
+            // Create media codec
+            MediaCodec codec = MediaCodec.createEncoderByType("audio/mp4a-latm");
+            // codec.configure();
+            codec.start();
+
+            // Get inputBuffer
+            int inputBufferId = codec.dequeueInputBuffer(-1);
+            while(inputBufferId < 0) {
+                inputBufferId = codec.dequeueInputBuffer(-1);
+            }
+
+            // Process inputBuffer
+            ByteBuffer inputBuffer = codec .getInputBuffer(...);
+            // fill inputBuffer with valid data
+            codec.queueInputBuffer(inputBufferId, ...);
+
+            // Get outputBuffer
+            int outputBufferId = codec.dequeueOutputBuffer(...);
+            if(outputBufferId >= 0) {
+                outputBufferId = codec.dequeueOutputBuffer(...)
+            }
+
+            // Process outputBuffer
+            ByteBuffer outputBuffer = codec.getOutputBuffer(outputBufferId);
+            // outputBuffer is ready to be processed
+            // ...
+            codec.releaseOutputBuffer(outputBufferId, false);
+
+            codec.stop();
+            codec.release();
+
+            // Return file
+            // ...
+
+        } catch(Exception e) {
             e.printStackTrace();
         }
 
