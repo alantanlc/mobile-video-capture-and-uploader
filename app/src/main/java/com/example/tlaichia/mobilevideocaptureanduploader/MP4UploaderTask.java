@@ -41,17 +41,17 @@ public class MP4UploaderTask extends AsyncTask<String, Void, Void> {
             File videoFile = new File(mFileName[2] + "/" + mFileName[1] + ".h264");
 
             // Encode audio
-            if(!encodeAudio(mFileName[2], mFileName[1])) {
-                return null;
-            }
-            File audioFile = new File(mFileName[2] + "/" + mFileName[1] + ".aac");
+            //if(!encodeAudio(mFileName[2], mFileName[1])) {
+                //return null;
+            //}
+            //File audioFile = new File(mFileName[2] + "/" + mFileName[1] + ".aac");
 
             // MP4Parser
             H264TrackImpl h264Track = new H264TrackImpl(new FileDataSourceImpl(videoFile));
-            AACTrackImpl aacTrack = new AACTrackImpl(new FileDataSourceImpl(audioFile));
+            //AACTrackImpl aacTrack = new AACTrackImpl(new FileDataSourceImpl(audioFile));
             Movie movie = new Movie();
             movie.addTrack(h264Track);
-            movie.addTrack(aacTrack);
+            //movie.addTrack(aacTrack);
             Container mp4file = new DefaultMp4Builder().build(movie);
             FileChannel fc = new FileOutputStream(new File(mFileName[2] + "/" + mFileName[1] + ".mp4")).getChannel();
             mp4file.writeContainer(fc);
