@@ -39,13 +39,6 @@ import java.text.SimpleDateFormat;
 import java.util.Arrays;
 import java.util.Date;
 
-import cz.msebera.android.httpclient.HttpEntity;
-import cz.msebera.android.httpclient.HttpResponse;
-import cz.msebera.android.httpclient.client.HttpClient;
-import cz.msebera.android.httpclient.client.methods.HttpPost;
-import cz.msebera.android.httpclient.entity.mime.MultipartEntityBuilder;
-import cz.msebera.android.httpclient.impl.client.DefaultHttpClient;
-
 public class MainActivity extends AppCompatActivity {
     private static final int REQUEST_CAMERA_PERMISSION_RESULT = 0;
     private static final int REQUEST_WRITE_EXTERNAL_STORAGE_PERMISSION_RESULT = 1;
@@ -262,7 +255,7 @@ public class MainActivity extends AppCompatActivity {
                 return;
             }
         } catch (CameraAccessException e) {
-            // e.printStackTrace();
+            e.printStackTrace();
         }
     }
 
@@ -294,7 +287,7 @@ public class MainActivity extends AppCompatActivity {
                 setupAudioRecord();
             }
         } catch (CameraAccessException e) {
-            // e.printStackTrace();
+            e.printStackTrace();
         }
     }
 
@@ -320,7 +313,7 @@ public class MainActivity extends AppCompatActivity {
                         }
                         session.setRepeatingRequest(mCaptureRequestBuilder.build(), null, null);
                     } catch (CameraAccessException e) {
-                        // e.printStackTrace();
+                        e.printStackTrace();
                     }
                 }
 
@@ -367,7 +360,7 @@ public class MainActivity extends AppCompatActivity {
                         }
                     } catch (Exception e) {
                         Log.e("MainActivity.java", "Exception occurred in onMarkerReached");
-                        // e.printStackTrace();
+                        e.printStackTrace();
                     }
                 }
 
@@ -423,7 +416,7 @@ public class MainActivity extends AppCompatActivity {
                         codec.releaseOutputBuffer(index, false);
                     } catch (Exception e) {
                         Log.e("MainActivity.java", "Exception occurred in onOutputBufferAvailable");
-                        // e.printStackTrace();
+                        e.printStackTrace();
                     }
                 }
 
@@ -438,7 +431,7 @@ public class MainActivity extends AppCompatActivity {
                 }
             });
         } catch (Exception e) {
-            // e.printStackTrace();
+            e.printStackTrace();
         }
     }
 
@@ -457,7 +450,7 @@ public class MainActivity extends AppCompatActivity {
                     try {
                         session.setRepeatingRequest(mCaptureRequestBuilder.build(), null, mBackgroundHandler);
                     } catch (CameraAccessException e) {
-                        // e.printStackTrace();
+                        e.printStackTrace();
                     }
                 }
 
@@ -467,7 +460,7 @@ public class MainActivity extends AppCompatActivity {
                 }
             }, null);
         } catch (CameraAccessException e) {
-            // e.printStackTrace();
+            e.printStackTrace();
         }
     }
 
