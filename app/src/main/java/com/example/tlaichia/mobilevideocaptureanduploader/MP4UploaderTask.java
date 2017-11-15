@@ -60,10 +60,10 @@ public class MP4UploaderTask extends AsyncTask<String, Void, Void> {
             Log.e("MP4UploaderTask.java", "MP4 file generated!");
 
             // Delete raw video and audio file
-            videoFile.delete();
+            // videoFile.delete();
             // audioFile.delete();
 
-            Log.i("MP4UploaderTask.java", "Raw video and audio files deleted!");
+            Log.e("MP4UploaderTask.java", "Raw video and audio files deleted!");
 
             // Upload to server using POST method
             HttpClient client = new DefaultHttpClient();
@@ -76,10 +76,49 @@ public class MP4UploaderTask extends AsyncTask<String, Void, Void> {
             HttpEntity entity = builder.build();
             post.setEntity(entity);
 
-            // Execute http post
-            // HttpResponse response = client.execute(post);
+            HttpResponse response = null;
+            boolean hasUploaded = false;
+            while(!hasUploaded) {
+                try {
+                    // Execute http post
+                    response = client.execute(post);
+                    hasUploaded = true;
+                    Log.e("MP4UploaderTask.java", "Response: " + response);
+                    Log.e("MP4UploaderTask.java", "MP4 segment uploaded!");
 
-            Log.i("MP4UploaderTask.java", "MP4 segment uploaded!");
+                    if(mFileName.length == 4) {
+                        boolean hasFinished = false;
+                        while(!hasFinished) {
+                            try {
+                                Log.e("MP4UploaderTask.java", "Trying UPLOAD_FINISH.PHP!");
+                                // Upload to server using POST method
+                                client = new DefaultHttpClient();
+                                post = new HttpPost("http://monterosa.d2.comp.nus.edu.sg/~team10/server/upload_finish.php");
+
+                                // MultipartEntityBuilder
+                                builder = MultipartEntityBuilder.create();
+                                builder.addTextBody("top_name", mFileName[0]);
+                                entity = builder.build();
+                                post.setEntity(entity);
+                                response = client.execute(post);
+                                hasFinished = true;
+                                Log.e("MP4UploaderTask.java", "UPLOAD_FINISH.PHP SUCCEEDED!");
+                            } catch (Exception e3) {
+                                Log.e("MP4UploaderTask.java", "Response: " + response);
+                            }
+                        }
+                    }
+                } catch (Exception e2) {
+                    Log.e("MP4UploaderTask.java", "Response: " + response);
+
+                    try {
+                        Thread.sleep(1000);
+                    } catch (Exception e3) {
+                        Log.e("MP4UploaderTask.java", "Error occurred with sleep");
+                        e3.printStackTrace();
+                    }
+                }
+            }
         } catch (Exception e) {
             Log.e("MP4UploaderTask.java", "Error occurred in doInBackground(String... fileName)");
             e.printStackTrace();
