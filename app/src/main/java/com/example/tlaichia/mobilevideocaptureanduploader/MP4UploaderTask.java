@@ -5,6 +5,7 @@ import android.media.MediaCodecInfo;
 import android.media.MediaFormat;
 import android.os.AsyncTask;
 import android.util.Log;
+import android.widget.Toast;
 
 import com.coremedia.iso.boxes.Container;
 import com.googlecode.mp4parser.FileDataSourceImpl;
@@ -86,26 +87,24 @@ public class MP4UploaderTask extends AsyncTask<String, Void, Void> {
                     Log.e("MP4UploaderTask.java", "Response: " + response);
                     Log.e("MP4UploaderTask.java", "MP4 segment uploaded!");
 
-                    if(mFileName.length == 4) {
-                        boolean hasFinished = false;
-                        while(!hasFinished) {
-                            try {
-                                Log.e("MP4UploaderTask.java", "Trying UPLOAD_FINISH.PHP!");
-                                // Upload to server using POST method
-                                client = new DefaultHttpClient();
-                                post = new HttpPost("http://monterosa.d2.comp.nus.edu.sg/~team10/server/upload_finish.php");
+                    boolean hasFinished = false;
+                    while(!hasFinished) {
+                        try {
+                            Log.e("MP4UploaderTask.java", "Trying UPLOAD_FINISH.PHP!");
+                            // Upload to server using POST method
+                            client = new DefaultHttpClient();
+                            post = new HttpPost("http://monterosa.d2.comp.nus.edu.sg/~team10/server/upload_finish.php");
 
-                                // MultipartEntityBuilder
-                                builder = MultipartEntityBuilder.create();
-                                builder.addTextBody("top_name", mFileName[0]);
-                                entity = builder.build();
-                                post.setEntity(entity);
-                                response = client.execute(post);
-                                hasFinished = true;
-                                Log.e("MP4UploaderTask.java", "UPLOAD_FINISH.PHP SUCCEEDED!");
-                            } catch (Exception e3) {
-                                Log.e("MP4UploaderTask.java", "Response: " + response);
-                            }
+                            // MultipartEntityBuilder
+                            builder = MultipartEntityBuilder.create();
+                            builder.addTextBody("top_name", mFileName[0]);
+                            entity = builder.build();
+                            post.setEntity(entity);
+                            response = client.execute(post);
+                            hasFinished = true;
+                            Log.e("MP4UploaderTask.java", "UPLOAD_FINISH.PHP SUCCEEDED!");
+                        } catch (Exception e3) {
+                            Log.e("MP4UploaderTask.java", "Response: " + response);
                         }
                     }
                 } catch (Exception e2) {

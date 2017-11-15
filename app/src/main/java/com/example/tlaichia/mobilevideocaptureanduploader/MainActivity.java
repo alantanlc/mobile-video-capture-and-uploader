@@ -134,7 +134,6 @@ public class MainActivity extends AppCompatActivity {
 
         try {
             // Instantiate variables
-            mMediaCodec = MediaCodec.createEncoderByType(MEDIA_CODEC_ENCODER_TYPE);
             mTextureView = (TextureView) findViewById(R.id.textureView);
             mIsRecording = false;
             csdData = new byte[]{0,0,0,1,103,66,-128,31,-38,1,64,22,-23,72,40,48,48,54,-123,9,-88,0,0,0,1,104,-50,6,-30};
@@ -171,7 +170,7 @@ public class MainActivity extends AppCompatActivity {
                 }
             });
 
-        } catch (IOException e) {
+        } catch (Exception e) {
             e.printStackTrace();
         }
     }
@@ -347,9 +346,6 @@ public class MainActivity extends AppCompatActivity {
                             // Close file and create new file
                             mAudioFileOutputStream.close();
 
-                            // AsyncTask to perform MP4Parser operations
-                            new MP4UploaderTask().execute((new String[] {mVideoFolderName, Integer.toString(mAudioSegmentCount-1), mVideoFolder.getAbsolutePath()}));
-
                             // Create new FileOutputStream
                             mAudioFileOutputStream = new FileOutputStream(createAudioFileName());
 
@@ -398,6 +394,9 @@ public class MainActivity extends AppCompatActivity {
                         if(mFrameCount == NUM_FRAMES_PER_REQUEST) {
                             // Close file and create new file
                             mFileOutputStream.close();
+
+                            // AsyncTask to perform MP4Parser operations
+                            new MP4UploaderTask().execute((new String[] {mVideoFolderName, Integer.toString(mVideoSegmentCount-1), mVideoFolder.getAbsolutePath()}));
 
                             // Create new FileOutputStream
                             File f = createVideoFileName();
@@ -490,6 +489,7 @@ public class MainActivity extends AppCompatActivity {
     }
 
     private void setupMediaCodec() throws IOException {
+        mMediaCodec = MediaCodec.createEncoderByType(MEDIA_CODEC_ENCODER_TYPE);
         mMediaFormat = MediaFormat.createVideoFormat(MEDIA_CODEC_ENCODER_TYPE, mVideoSize.getWidth(), mVideoSize.getHeight());
         int colorFormat = MediaCodecInfo.CodecCapabilities.COLOR_FormatSurface;
         mMediaFormat.setInteger(MediaFormat.KEY_COLOR_FORMAT, colorFormat);
