@@ -39,6 +39,14 @@ import java.text.SimpleDateFormat;
 import java.util.Arrays;
 import java.util.Date;
 
+import cz.msebera.android.httpclient.HttpEntity;
+import cz.msebera.android.httpclient.HttpResponse;
+import cz.msebera.android.httpclient.client.HttpClient;
+import cz.msebera.android.httpclient.client.methods.HttpPost;
+import cz.msebera.android.httpclient.entity.mime.MultipartEntityBuilder;
+import cz.msebera.android.httpclient.entity.mime.content.FileBody;
+import cz.msebera.android.httpclient.impl.client.DefaultHttpClient;
+
 public class MainActivity extends AppCompatActivity {
     private static final int REQUEST_CAMERA_PERMISSION_RESULT = 0;
     private static final int REQUEST_WRITE_EXTERNAL_STORAGE_PERMISSION_RESULT = 1;
@@ -542,6 +550,7 @@ public class MainActivity extends AppCompatActivity {
                     File audioFile = createAudioFileName();
                     mFileOutputStream = new FileOutputStream(f);
                     mAudioFileOutputStream = new FileOutputStream(audioFile);
+                    requestUploadLive();
                 } catch (IOException e) {
                     e.printStackTrace();
                 }
@@ -575,5 +584,9 @@ public class MainActivity extends AppCompatActivity {
             mAudioRecord.startRecording();
             mMediaCodec.start();
         }
+    }
+
+    private void requestUploadLive() {
+        new UploadLiveTask().execute((new String[] {mVideoFolderName}));
     }
 }

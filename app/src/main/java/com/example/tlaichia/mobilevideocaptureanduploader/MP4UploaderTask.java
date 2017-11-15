@@ -68,7 +68,7 @@ public class MP4UploaderTask extends AsyncTask<String, Void, Void> {
 
             // Upload to server using POST method
             HttpClient client = new DefaultHttpClient();
-            HttpPost post = new HttpPost("http://monterosa.d2.comp.nus.edu.sg/~team10/server/upload_multiple.php");
+            HttpPost post = new HttpPost("http://monterosa.d2.comp.nus.edu.sg/~team10/server/upload_live_rest.php");
 
             // MultipartEntityBuilder
             MultipartEntityBuilder builder = MultipartEntityBuilder.create();
@@ -86,27 +86,6 @@ public class MP4UploaderTask extends AsyncTask<String, Void, Void> {
                     hasUploaded = true;
                     Log.e("MP4UploaderTask.java", "Response: " + response);
                     Log.e("MP4UploaderTask.java", "MP4 segment uploaded!");
-
-                    boolean hasFinished = false;
-                    while(!hasFinished) {
-                        try {
-                            Log.e("MP4UploaderTask.java", "Trying UPLOAD_FINISH.PHP!");
-                            // Upload to server using POST method
-                            client = new DefaultHttpClient();
-                            post = new HttpPost("http://monterosa.d2.comp.nus.edu.sg/~team10/server/upload_finish.php");
-
-                            // MultipartEntityBuilder
-                            builder = MultipartEntityBuilder.create();
-                            builder.addTextBody("top_name", mFileName[0]);
-                            entity = builder.build();
-                            post.setEntity(entity);
-                            response = client.execute(post);
-                            hasFinished = true;
-                            Log.e("MP4UploaderTask.java", "UPLOAD_FINISH.PHP SUCCEEDED!");
-                        } catch (Exception e3) {
-                            Log.e("MP4UploaderTask.java", "Response: " + response);
-                        }
-                    }
                 } catch (Exception e2) {
                     Log.e("MP4UploaderTask.java", "Response: " + response);
 
