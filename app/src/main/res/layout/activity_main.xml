@@ -4,23 +4,25 @@
     xmlns:tools="http://schemas.android.com/tools"
     android:layout_width="match_parent"
     android:layout_height="match_parent"
+    android:background="#000"
     tools:context="com.example.tlaichia.mobilevideocaptureanduploader.MainActivity">
 
     <TextureView
         android:id="@+id/textureView"
-        android:layout_width="wrap_content"
-        android:layout_height="wrap_content"
+        android:layout_width="720dp"
+        android:layout_height="1280dp"
+        android:layout_centerHorizontal="true"
         tools:layout_editor_absoluteX="0dp"
         tools:layout_editor_absoluteY="0dp" />
 
     <ImageButton
         android:id="@+id/recordVideoImageButton"
-        android:contentDescription="@string/record_video_button"
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
-        app:srcCompat="@mipmap/btn_video_record"
         android:layout_alignParentBottom="true"
         android:layout_centerHorizontal="true"
-        android:layout_marginBottom="64dp" />
+        android:layout_marginBottom="64dp"
+        android:contentDescription="@string/record_video_button"
+        app:srcCompat="@mipmap/btn_video_record" />
 
 </android.widget.RelativeLayout>
